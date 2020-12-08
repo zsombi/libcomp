@@ -7,11 +7,13 @@
 namespace sywu
 {
 
+ConnectionPtr SignalConcept::currentConnection;
+
 void Connection::disconnect()
 {
     lock_guard lock(*this);
     disconnectOverride();
-    m_signal = nullptr;
+    m_sender = nullptr;
 }
 
 namespace
@@ -32,6 +34,20 @@ public:
         }
 
         {
+            struct ConnectionSwapper
+            {
+                ConnectionPtr previousConnection;
+                explicit ConnectionSwapper(ConnectionPtr connection)
+                    : previousConnection(SignalConcept::currentConnection)
+                {
+                    SignalConcept::currentConnection = connection;
+                }
+                ~ConnectionSwapper()
+                {
+                    SignalConcept::currentConnection = previousConnection;
+                }
+            };
+            ConnectionSwapper backupConnection(shared_from_this());
             relock_guard relock(*this);
             activateOverride(std::forward<Arguments>(arguments)...);
         }
@@ -196,9 +212,8 @@ size_t Signal<Arguments...>::operator()(Arguments... arguments)
         {
             ++count;
         }
-        else if (!connectionConcept->isValid())
+        else if (!connectionConcept->isValid() && connectionConcept->getSender())
         {
-            relock_guard reguard(*connection);
             disconnect(connection);
         }
     }

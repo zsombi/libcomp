@@ -33,12 +33,19 @@ public:
     /// Disconnect the connection from the signal.
     void disconnect();
 
+    /// Returns the sender signal of the connection.
+    /// \return The sender signal. If the connection is invalid, returns \e nullptr.
+    SignalConcept* getSender() const
+    {
+        return m_sender;
+    }
+
     /// Returns the valid state of the connection.
     /// \return If the connection is valid, returns \e true, otherwise returns \e false. A connection is invalid when its
     /// source signal or its trackers are destroyed.
     bool isValid() const
     {
-        return (m_signal != nullptr) && isValidOverride();
+        return (m_sender != nullptr) && isValidOverride();
     }
     /// Returns the enabled state of a connection.
     /// \return If the connection is enabled, returns \e true, otherwise returns \e false.
@@ -54,14 +61,14 @@ public:
     }
 
 protected:
-    /// Constructs the connection with the sender \a signal.
-    explicit Connection(SignalConcept& signal)
-        : m_signal(&signal)
+    /// Constructs the connection with the \a sender signal.
+    explicit Connection(SignalConcept& sender)
+        : m_sender(&sender)
     {
     }
 
     /// To define connection specific validity, override this method.
-    /// \return If the
+    /// \return If the override is valid, return \e true, otherwise \e false.
     virtual bool isValidOverride() const
     {
         return true;
@@ -73,7 +80,7 @@ protected:
     }
 
 private:
-    SignalConcept* m_signal = nullptr;
+    SignalConcept* m_sender = nullptr;
     std::atomic_bool m_isEnabled = true;
 };
 
@@ -85,6 +92,10 @@ class SYWU_API SignalConcept : public Lockable
     DISABLE_COPY_OR_MOVE(SignalConcept);
 
 public:
+    /// The current connection. Use this member to access the connection that holds the connected
+    /// slot that is activated by the signal.
+    static ConnectionPtr currentConnection;
+
     /// Destructor
     ~SignalConcept();
 
@@ -120,7 +131,7 @@ private:
 /// The signal template. Use this template to define a signal with a signature.
 /// \tparam Arguments The arguments of the signal, which is the signature of the signal.
 template <typename... Arguments>
-class Signal : public SignalConcept
+class SYWU_TEMPLATE_API Signal : public SignalConcept
 {
     AtomicRefCounted<int> m_emitGuard = 0;
 
