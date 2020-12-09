@@ -1,43 +1,11 @@
-#include <gtest/gtest.h>
-#include <sywu/signal.hpp>
+#include "test_base.hpp"
+//#include <sywu/signal.hpp>
 #include <sywu/impl/signal_impl.hpp>
 
-class SignalTest : public ::testing::Test
-{
-public:
-    explicit SignalTest()
-    {
-        stringValue.clear();
-        functionCallCount = 0u;
-        intValue = 0u;
-    }
-
-    static void function()
-    {
-        ++functionCallCount;
-    }
-
-    static void functionWithIntArgument(int ivalue)
-    {
-        intValue = ivalue;
-    }
-
-    static void functionWithIntRefArgument(int& ivalue)
-    {
-        intValue = ivalue;
-        ivalue *= 2;
-    }
-
-    static void functionWithIntAndStringArgument(int ivalue, std::string str)
-    {
-        intValue = ivalue;
-        stringValue = str;
-    }
-
-    static inline std::string stringValue;
-    static inline size_t functionCallCount = 0u;
-    static inline size_t intValue = 0u;
-};
+template class sywu::Signal<>;
+template class sywu::Signal<int>;
+template class sywu::Signal<int&>;
+template class sywu::Signal<int, std::string>;
 
 class Object1 : public std::enable_shared_from_this<Object1>
 {
@@ -57,7 +25,7 @@ TEST_F(SignalTest, connectToFunction)
     auto connection = signal.connect(&function);
     EXPECT_NE(nullptr, connection);
 
-    signal();
+    EXPECT_EQ(1, signal());
     EXPECT_EQ(1u, functionCallCount);
 }
 
@@ -170,13 +138,14 @@ TEST_F(SignalTest, disconnectWithConnection)
 // The application developer can disconnect a connection from a signal using the signal dicsonnect function.
 TEST_F(SignalTest, disconnectWithSignal)
 {
-    sywu::Signal<> signal;
+    using SignalType = sywu::Signal<>;
+    SignalType signal;
     sywu::ConnectionPtr connection;
     auto slot = []()
     {
         if (sywu::SignalConcept::currentConnection)
         {
-            sywu::SignalConcept::currentConnection->getSender()->disconnect(sywu::SignalConcept::currentConnection);
+            sywu::SignalConcept::currentConnection->getSender<SignalType>()->disconnect(sywu::SignalConcept::currentConnection);
         }
     };
     connection = signal.connect(slot);
@@ -230,7 +199,7 @@ TEST_F(SignalTest, connectToTheInvokingSignal)
 
     auto slot = []()
     {
-        dynamic_cast<SignalType*>(sywu::SignalConcept::currentConnection->getSender())->connect(&function);
+        sywu::SignalConcept::currentConnection->getSender<SignalType>()->connect(&function);
     };
     signal.connect(slot);
     EXPECT_EQ(1, signal());
@@ -275,7 +244,7 @@ TEST_F(SignalTest, connectionFromSlotGetsActivatedNextTime)
 
     auto slot = []()
     {
-        dynamic_cast<SignalType*>(sywu::SignalConcept::currentConnection->getSender())->connect(&function);
+        sywu::SignalConcept::currentConnection->getSender<SignalType>()->connect(&function);
     };
     signal.connect(slot);
     EXPECT_EQ(1, signal());

@@ -15,8 +15,6 @@ namespace sywu
 {
 
 class SignalConcept;
-template <typename... Arguments>
-class Signal;
 
 class Connection;
 using ConnectionPtr = std::shared_ptr<Connection>;
@@ -31,13 +29,27 @@ public:
     /// Destructor.
     virtual ~Connection() = default;
     /// Disconnect the connection from the signal.
-    void disconnect();
+    void disconnect()
+    {
+        lock_guard lock(*this);
+        disconnectOverride();
+        m_sender = nullptr;
+    }
 
     /// Returns the sender signal of the connection.
     /// \return The sender signal. If the connection is invalid, returns \e nullptr.
     SignalConcept* getSender() const
     {
         return m_sender;
+    }
+
+    /// Returns the sender signal of the connection.
+    /// \tparam SignalType The type fo the signal.
+    /// \return The sender signal. If the connection is invalid, or the signal type differs, returns \e nullptr.
+    template <class SignalType>
+    SignalType* getSender() const
+    {
+        return static_cast<SignalType*>(m_sender);
     }
 
     /// Returns the valid state of the connection.
@@ -86,22 +98,14 @@ private:
 
 /// The SignalConcept defines the concept of the signals. Defined as a lockable for convenience, holds the
 /// connections of the signal.
-class SYWU_API SignalConcept : public Lockable
+class SYWU_API SignalConcept
 {
-    friend class Connection;
     DISABLE_COPY_OR_MOVE(SignalConcept);
 
 public:
     /// The current connection. Use this member to access the connection that holds the connected
     /// slot that is activated by the signal.
-    static ConnectionPtr currentConnection;
-
-    /// Destructor
-    ~SignalConcept();
-
-    /// Disconnects the \a connection passed as argument.
-    /// \param connection The connection to disconnect. The connection is invalidated and removed from the signal.
-    void disconnect(ConnectionPtr connection);
+    static inline ConnectionPtr currentConnection;
 
     /// Returns the blocked state of a signal.
     /// \return The blocked state of a signal. When a signal is blocked, the signal emission does nothing.
@@ -128,16 +132,18 @@ private:
     std::atomic_bool m_isBlocked = false;
 };
 
-/// The signal template. Use this template to define a signal with a signature.
-/// \tparam Arguments The arguments of the signal, which is the signature of the signal.
-template <typename... Arguments>
-class SYWU_TEMPLATE_API Signal : public SignalConcept
+/// Signal concept implementation.
+template <class DerivedClass, typename... Arguments>
+class SYWU_TEMPLATE_API SignalConceptImpl : public Lockable, public SignalConcept
 {
-    AtomicRefCounted<int> m_emitGuard = 0;
+    DerivedClass* getSelf()
+    {
+        return static_cast<DerivedClass*>(this);
+    }
 
 public:
-    /// Constructor.
-    explicit Signal() = default;
+    /// Destructor.
+    ~SignalConceptImpl();
 
     /// Activates the signal with the given arguments.
     /// \param arguments... The variadic arguments passed.
@@ -162,8 +168,42 @@ public:
     /// Creates a connection between this signal and a \a receiver signal.
     /// \param receiver The receiver signal connected to this signal.
     /// \return Returns the shared pointer to the connection.
-    template <class... SignalArguments>
-    ConnectionPtr connect(Signal<SignalArguments...>& receiver);
+    template <class TLockableClass, class... SignalArguments>
+    ConnectionPtr connect(SignalConceptImpl<TLockableClass, SignalArguments...>& receiver);
+
+    /// Disconnects the \a connection passed as argument.
+    /// \param connection The connection to disconnect. The connection is invalidated and removed from the signal.
+    void disconnect(ConnectionPtr connection);
+
+protected:
+    explicit SignalConceptImpl() = default;
+};
+
+/// The signal template. Use this template to define a signal with a signature.
+/// \tparam Arguments The arguments of the signal, which is the signature of the signal.
+template <typename... Arguments>
+class SYWU_TEMPLATE_API Signal : public SignalConceptImpl<Signal<Arguments...>, Arguments...>
+{
+    friend class SignalConceptImpl<Signal<Arguments...>, Arguments...>;
+    BoolLock m_emitGuard;
+
+public:
+    /// Constructor.
+    explicit Signal() = default;
+};
+
+/// Use this template to create a member signal on a class that derives from std::enable_shared_from_this<>.
+/// \tparam SignalHost The class on which the member signal is defined.
+/// \tparam Arguments The arguments of the signal, which is the signature of the signal.
+template <class SignalHost, typename... Arguments>
+class SYWU_TEMPLATE_API MemberSignal : public SignalConceptImpl<MemberSignal<SignalHost, Arguments...>, Arguments...>
+{
+    friend class SignalConceptImpl<MemberSignal<SignalHost, Arguments...>, Arguments...>;
+    SharedPtrLock<SignalHost> m_emitGuard;
+
+public:
+    /// Constructor
+    explicit MemberSignal(SignalHost& signalHost);
 };
 
 } // namespace sywu

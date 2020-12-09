@@ -7,15 +7,6 @@
 namespace sywu
 {
 
-ConnectionPtr SignalConcept::currentConnection;
-
-void Connection::disconnect()
-{
-    lock_guard lock(*this);
-    disconnectOverride();
-    m_sender = nullptr;
-}
-
 namespace
 {
 
@@ -55,7 +46,7 @@ public:
     }
 
 protected:
-    explicit ConnectionConcept(Signal<Arguments...>& signal)
+    explicit ConnectionConcept(SignalConcept& signal)
         : Connection(signal)
     {
     }
@@ -68,7 +59,7 @@ class SYWU_TEMPLATE_API FunctionConnection final : public ConnectionConcept<Argu
 {
     using Base = ConnectionConcept<Arguments...>;
 public:
-    explicit FunctionConnection(Signal<Arguments...>& signal, const FunctionType& function)
+    explicit FunctionConnection(SignalConcept& signal, const FunctionType& function)
         : Base(signal)
         , m_function(function)
     {
@@ -90,7 +81,7 @@ class SYWU_TEMPLATE_API MethodConnection final : public ConnectionConcept<Argume
     using Base = ConnectionConcept<Arguments...>;
 public:
     using FunctionType = void(TargetObject::*)(Arguments...);
-    explicit MethodConnection(Signal<Arguments...>& signal, std::shared_ptr<TargetObject> target, const FunctionType& function)
+    explicit MethodConnection(SignalConcept& signal, std::shared_ptr<TargetObject> target, const FunctionType& function)
         : Base(signal)
         , m_target(target)
         , m_function(function)
@@ -129,7 +120,7 @@ class SYWU_TEMPLATE_API SignalConnection final : public ConnectionConcept<Argume
     using Base = ConnectionConcept<Arguments...>;
 
 public:
-    explicit SignalConnection(Signal<Arguments...>& sender, ReceiverSignal& receiver)
+    explicit SignalConnection(SignalConcept& sender, ReceiverSignal& receiver)
         : Base(sender)
         , m_receiver(&receiver)
     {
@@ -157,35 +148,30 @@ private:
 
 } // namespace noname
 
-SignalConcept::~SignalConcept()
+template <class DerivedClass, typename... Arguments>
+SignalConceptImpl<DerivedClass, Arguments...>::~SignalConceptImpl()
 {
-    while (!m_connections.empty())
+    lock_guard lock(*this);
+
+    auto invalidate = [](auto connection)
     {
-        disconnect(m_connections.back());
-    }
+        if (connection && connection->isValid())
+        {
+            connection->disconnect();
+        }
+    };
+    utils::for_each(m_connections, invalidate);
 }
 
-void SignalConcept::disconnect(ConnectionPtr connection)
+template <class DerivedClass, typename... Arguments>
+size_t SignalConceptImpl<DerivedClass, Arguments...>::operator()(Arguments... arguments)
 {
-    if (!connection)
-    {
-        return;
-    }
-    lock_guard guard(*this);
-    utils::erase(m_connections, connection);
-    connection->disconnect();
-}
-
-
-template <typename... Arguments>
-size_t Signal<Arguments...>::operator()(Arguments... arguments)
-{
-    if (isBlocked() || m_emitGuard > 0)
+    if (isBlocked() || getSelf()->m_emitGuard.isLocked())
     {
         return 0u;
     }
 
-    RefCounter guard(m_emitGuard);
+    lock_guard guard(getSelf()->m_emitGuard);
 
     ConnectionContainer connections;
     {
@@ -221,10 +207,10 @@ size_t Signal<Arguments...>::operator()(Arguments... arguments)
     return count;
 }
 
-template <typename... Arguments>
+template <class DerivedClass, typename... Arguments>
 template <class SlotFunction>
 std::enable_if_t<std::is_member_function_pointer_v<SlotFunction>, ConnectionPtr>
-Signal<Arguments...>::connect(std::shared_ptr<typename traits::function_traits<SlotFunction>::object> receiver, SlotFunction method)
+SignalConceptImpl<DerivedClass, Arguments...>::connect(std::shared_ptr<typename traits::function_traits<SlotFunction>::object> receiver, SlotFunction method)
 {
     using Object = typename traits::function_traits<SlotFunction>::object;
 
@@ -241,10 +227,10 @@ Signal<Arguments...>::connect(std::shared_ptr<typename traits::function_traits<S
     return m_connections.back();
 }
 
-template <typename... Arguments>
+template <class DerivedClass, typename... Arguments>
 template <class SlotFunction>
 std::enable_if_t<!std::is_base_of_v<sywu::SignalConcept, SlotFunction>, ConnectionPtr>
-Signal<Arguments...>::connect(const SlotFunction& slot)
+SignalConceptImpl<DerivedClass, Arguments...>::connect(const SlotFunction& slot)
 {
     static_assert(
         traits::function_traits<SlotFunction>::arity == 0 ||
@@ -259,11 +245,11 @@ Signal<Arguments...>::connect(const SlotFunction& slot)
     return m_connections.back();
 }
 
-template <typename... Arguments>
-template <class... SignalArguments>
-ConnectionPtr Signal<Arguments...>::connect(Signal<SignalArguments...>& receiver)
+template <class DerivedClass, typename... Arguments>
+template <class TDerivedClass, class... SignalArguments>
+ConnectionPtr SignalConceptImpl<DerivedClass, Arguments...>::connect(SignalConceptImpl<TDerivedClass, SignalArguments...>& receiver)
 {
-    using ReceiverSignal = Signal<SignalArguments...>;
+    using ReceiverSignal = SignalConceptImpl<TDerivedClass, SignalArguments...>;
     static_assert(
         sizeof...(SignalArguments) == 0 ||
         std::is_same_v<std::tuple<Arguments...>, std::tuple<SignalArguments...>>,
@@ -275,6 +261,27 @@ ConnectionPtr Signal<Arguments...>::connect(Signal<SignalArguments...>& receiver
         m_connections.emplace_back(connection);
     }
     return m_connections.back();
+}
+
+template <class DerivedClass, typename... Arguments>
+void SignalConceptImpl<DerivedClass, Arguments...>::disconnect(ConnectionPtr connection)
+{
+    if (!connection)
+    {
+        return;
+    }
+    lock_guard guard(*this);
+    utils::erase(m_connections, connection);
+    connection->disconnect();
+}
+
+/******************************************************************************
+ * MemberSignal
+ */
+template <class SignalHost, typename... Arguments>
+MemberSignal<SignalHost, Arguments...>::MemberSignal(SignalHost& signalHost)
+    : m_emitGuard(signalHost)
+{
 }
 
 } // namespace sywu

@@ -9,7 +9,9 @@ include_directories(${CMAKE_SOURCE_DIR}/tests)
 
 set (SOURCES
     test_main.cpp
+    test_base.hpp
     test_signal.cpp
+    test_member_signal.cpp
 )
 
 add_executable(unittests ${SOURCES})
