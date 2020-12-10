@@ -278,8 +278,8 @@ void SignalConceptImpl<DerivedClass, Arguments...>::disconnect(ConnectionPtr con
 /******************************************************************************
  * MemberSignal
  */
-template <class SignalHost, typename... Arguments>
-MemberSignal<SignalHost, Arguments...>::MemberSignal(SignalHost& signalHost)
+template <class SignalHost, typename ReturnType, typename... Arguments>
+MemberSignal<SignalHost, ReturnType(Arguments...)>::MemberSignal(SignalHost& signalHost)
     : m_emitGuard(signalHost)
 {
 }

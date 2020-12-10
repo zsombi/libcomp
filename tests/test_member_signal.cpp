@@ -8,10 +8,10 @@ public:
     int voidMethodCallCount = 0;
     int intMethodValue = 0;
 
-    sywu::MemberSignal<TestObject> signal{*this};
-    sywu::MemberSignal<TestObject, int> intSignal{*this};
-    sywu::MemberSignal<TestObject, int&> intRefSignal{*this};
-    sywu::MemberSignal<TestObject, int, std::string> intStrSignal{*this};
+    sywu::MemberSignal<TestObject, void()> signal{*this};
+    sywu::MemberSignal<TestObject, void(int)> intSignal{*this};
+    sywu::MemberSignal<TestObject, void(int&)> intRefSignal{*this};
+    sywu::MemberSignal<TestObject, void(int, std::string)> intStrSignal{*this};
 
     void voidMethod()
     {
@@ -23,10 +23,10 @@ public:
     }
 };
 
-template class sywu::MemberSignal<TestObject>;
-template class sywu::MemberSignal<TestObject, int>;
-template class sywu::MemberSignal<TestObject, int&>;
-template class sywu::MemberSignal<TestObject, int, std::string>;
+template class sywu::MemberSignal<TestObject, void()>;
+template class sywu::MemberSignal<TestObject, void(int)>;
+template class sywu::MemberSignal<TestObject, void(int&)>;
+template class sywu::MemberSignal<TestObject, void(int, std::string)>;
 
 class MemberSignalTest : public SignalTest
 {
@@ -82,6 +82,7 @@ TEST_F(MemberSignalTest, connectToFunctionWithRefArgument)
     EXPECT_EQ(20, ivalue);
 }
 
+// The signal should survive the sender object deletion.
 TEST_F(MemberSignalTest, deleteSenderObjectFromSlot)
 {
     std::weak_ptr<TestObject> watcher = object;
@@ -91,10 +92,33 @@ TEST_F(MemberSignalTest, deleteSenderObjectFromSlot)
     };
     auto checkWatcher = [&watcher]()
     {
+        // The object is not destroyed, as the signal activation is holding a reference to the sender.
         EXPECT_FALSE(watcher.expired());
     };
     object->signal.connect(deleter);
     object->signal.connect(checkWatcher);
     EXPECT_EQ(2, object->signal());
     EXPECT_TRUE(watcher.expired());
+}
+
+// The application developer should be able to delete a dynamic signal member of the sender object.
+TEST_F(MemberSignalTest, deleteSenderSignalInSlot)
+{
+    GTEST_SKIP();
+    using SignalType = sywu::MemberSignal<TestObject, void()>;
+    auto dynamicSignal = std::make_unique<SignalType>(*object);
+
+    auto killSignal = [&dynamicSignal]()
+    {
+        dynamicSignal.reset();
+    };
+    auto connection1 = dynamicSignal->connect(killSignal);
+    auto connection2 = dynamicSignal->connect([](){});
+    auto connection3 = dynamicSignal->connect([](){});
+
+    EXPECT_EQ(1, (*dynamicSignal)());
+    EXPECT_EQ(nullptr, dynamicSignal);
+    EXPECT_FALSE(connection1->isValid());
+    EXPECT_FALSE(connection2->isValid());
+    EXPECT_FALSE(connection3->isValid());
 }

@@ -179,12 +179,15 @@ protected:
     explicit SignalConceptImpl() = default;
 };
 
+template <typename ReturnType, typename... Arguments>
+class Signal;
+
 /// The signal template. Use this template to define a signal with a signature.
 /// \tparam Arguments The arguments of the signal, which is the signature of the signal.
-template <typename... Arguments>
-class SYWU_TEMPLATE_API Signal : public SignalConceptImpl<Signal<Arguments...>, Arguments...>
+template <typename ReturnType, typename... Arguments>
+class SYWU_TEMPLATE_API Signal<ReturnType(Arguments...)> : public SignalConceptImpl<Signal<ReturnType(Arguments...)>, Arguments...>
 {
-    friend class SignalConceptImpl<Signal<Arguments...>, Arguments...>;
+    friend class SignalConceptImpl<Signal<ReturnType(Arguments...)>, Arguments...>;
     BoolLock m_emitGuard;
 
 public:
@@ -192,13 +195,15 @@ public:
     explicit Signal() = default;
 };
 
+template <class SignalHost, typename ReturnType, typename... Arguments>
+class MemberSignal;
 /// Use this template to create a member signal on a class that derives from std::enable_shared_from_this<>.
 /// \tparam SignalHost The class on which the member signal is defined.
 /// \tparam Arguments The arguments of the signal, which is the signature of the signal.
-template <class SignalHost, typename... Arguments>
-class SYWU_TEMPLATE_API MemberSignal : public SignalConceptImpl<MemberSignal<SignalHost, Arguments...>, Arguments...>
+template <class SignalHost, typename ReturnType, typename... Arguments>
+class SYWU_TEMPLATE_API MemberSignal<SignalHost, ReturnType(Arguments...)> : public SignalConceptImpl<MemberSignal<SignalHost, ReturnType(Arguments...)>, Arguments...>
 {
-    friend class SignalConceptImpl<MemberSignal<SignalHost, Arguments...>, Arguments...>;
+    friend class SignalConceptImpl<MemberSignal<SignalHost, ReturnType(Arguments...)>, Arguments...>;
     SharedPtrLock<SignalHost> m_emitGuard;
 
 public:
