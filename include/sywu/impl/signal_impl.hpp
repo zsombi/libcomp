@@ -148,8 +148,8 @@ private:
 
 } // namespace noname
 
-template <class DerivedClass, typename... Arguments>
-SignalConceptImpl<DerivedClass, Arguments...>::~SignalConceptImpl()
+template <class DerivedClass, typename ReturnType, typename... Arguments>
+SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::~SignalConceptImpl()
 {
     lock_guard lock(*this);
 
@@ -163,8 +163,8 @@ SignalConceptImpl<DerivedClass, Arguments...>::~SignalConceptImpl()
     utils::for_each(m_connections, invalidate);
 }
 
-template <class DerivedClass, typename... Arguments>
-size_t SignalConceptImpl<DerivedClass, Arguments...>::operator()(Arguments... arguments)
+template <class DerivedClass, typename ReturnType, typename... Arguments>
+size_t SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::operator()(Arguments... arguments)
 {
     if (isBlocked() || getSelf()->m_emitGuard.isLocked())
     {
@@ -207,10 +207,10 @@ size_t SignalConceptImpl<DerivedClass, Arguments...>::operator()(Arguments... ar
     return count;
 }
 
-template <class DerivedClass, typename... Arguments>
+template <class DerivedClass, typename ReturnType, typename... Arguments>
 template <class SlotFunction>
 std::enable_if_t<std::is_member_function_pointer_v<SlotFunction>, ConnectionPtr>
-SignalConceptImpl<DerivedClass, Arguments...>::connect(std::shared_ptr<typename traits::function_traits<SlotFunction>::object> receiver, SlotFunction method)
+SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::connect(std::shared_ptr<typename traits::function_traits<SlotFunction>::object> receiver, SlotFunction method)
 {
     using Object = typename traits::function_traits<SlotFunction>::object;
 
@@ -227,10 +227,10 @@ SignalConceptImpl<DerivedClass, Arguments...>::connect(std::shared_ptr<typename 
     return m_connections.back();
 }
 
-template <class DerivedClass, typename... Arguments>
+template <class DerivedClass, typename ReturnType, typename... Arguments>
 template <class SlotFunction>
 std::enable_if_t<!std::is_base_of_v<sywu::SignalConcept, SlotFunction>, ConnectionPtr>
-SignalConceptImpl<DerivedClass, Arguments...>::connect(const SlotFunction& slot)
+SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::connect(const SlotFunction& slot)
 {
     static_assert(
         traits::function_traits<SlotFunction>::arity == 0 ||
@@ -245,14 +245,14 @@ SignalConceptImpl<DerivedClass, Arguments...>::connect(const SlotFunction& slot)
     return m_connections.back();
 }
 
-template <class DerivedClass, typename... Arguments>
-template <class TDerivedClass, class... SignalArguments>
-ConnectionPtr SignalConceptImpl<DerivedClass, Arguments...>::connect(SignalConceptImpl<TDerivedClass, SignalArguments...>& receiver)
+template <class DerivedClass, typename ReturnType, typename... Arguments>
+template <class RDerivedClass, typename RReturnType, class... RArguments>
+ConnectionPtr SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::connect(SignalConceptImpl<RDerivedClass, RReturnType, RArguments...>& receiver)
 {
-    using ReceiverSignal = SignalConceptImpl<TDerivedClass, SignalArguments...>;
+    using ReceiverSignal = SignalConceptImpl<RDerivedClass, RReturnType, RArguments...>;
     static_assert(
-        sizeof...(SignalArguments) == 0 ||
-        std::is_same_v<std::tuple<Arguments...>, std::tuple<SignalArguments...>>,
+        sizeof...(RArguments) == 0 ||
+        std::is_same_v<std::tuple<Arguments...>, std::tuple<RArguments...>>,
         "incompatible signal signature");
 
     {
@@ -263,8 +263,8 @@ ConnectionPtr SignalConceptImpl<DerivedClass, Arguments...>::connect(SignalConce
     return m_connections.back();
 }
 
-template <class DerivedClass, typename... Arguments>
-void SignalConceptImpl<DerivedClass, Arguments...>::disconnect(ConnectionPtr connection)
+template <class DerivedClass, typename ReturnType, typename... Arguments>
+void SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::disconnect(ConnectionPtr connection)
 {
     if (!connection)
     {

@@ -133,7 +133,7 @@ private:
 };
 
 /// Signal concept implementation.
-template <class DerivedClass, typename... Arguments>
+template <class DerivedClass, typename ReturnType, typename... Arguments>
 class SYWU_TEMPLATE_API SignalConceptImpl : public Lockable, public SignalConcept
 {
     DerivedClass* getSelf()
@@ -168,8 +168,8 @@ public:
     /// Creates a connection between this signal and a \a receiver signal.
     /// \param receiver The receiver signal connected to this signal.
     /// \return Returns the shared pointer to the connection.
-    template <class TLockableClass, class... SignalArguments>
-    ConnectionPtr connect(SignalConceptImpl<TLockableClass, SignalArguments...>& receiver);
+    template <class RDerivedClass, typename RReturnType, class... RArguments>
+    ConnectionPtr connect(SignalConceptImpl<RDerivedClass, RReturnType, RArguments...>& receiver);
 
     /// Disconnects the \a connection passed as argument.
     /// \param connection The connection to disconnect. The connection is invalidated and removed from the signal.
@@ -185,9 +185,9 @@ class Signal;
 /// The signal template. Use this template to define a signal with a signature.
 /// \tparam Arguments The arguments of the signal, which is the signature of the signal.
 template <typename ReturnType, typename... Arguments>
-class SYWU_TEMPLATE_API Signal<ReturnType(Arguments...)> : public SignalConceptImpl<Signal<ReturnType(Arguments...)>, Arguments...>
+class SYWU_TEMPLATE_API Signal<ReturnType(Arguments...)> : public SignalConceptImpl<Signal<ReturnType(Arguments...)>, ReturnType, Arguments...>
 {
-    friend class SignalConceptImpl<Signal<ReturnType(Arguments...)>, Arguments...>;
+    friend class SignalConceptImpl<Signal<ReturnType(Arguments...)>, ReturnType, Arguments...>;
     BoolLock m_emitGuard;
 
 public:
@@ -201,14 +201,15 @@ class MemberSignal;
 /// \tparam SignalHost The class on which the member signal is defined.
 /// \tparam Arguments The arguments of the signal, which is the signature of the signal.
 template <class SignalHost, typename ReturnType, typename... Arguments>
-class SYWU_TEMPLATE_API MemberSignal<SignalHost, ReturnType(Arguments...)> : public SignalConceptImpl<MemberSignal<SignalHost, ReturnType(Arguments...)>, Arguments...>
+class SYWU_TEMPLATE_API MemberSignal<SignalHost, ReturnType(Arguments...)> : public SignalConceptImpl<MemberSignal<SignalHost, ReturnType(Arguments...)>, ReturnType, Arguments...>
 {
-    friend class SignalConceptImpl<MemberSignal<SignalHost, ReturnType(Arguments...)>, Arguments...>;
+    friend class SignalConceptImpl<MemberSignal<SignalHost, ReturnType(Arguments...)>, ReturnType, Arguments...>;
     SharedPtrLock<SignalHost> m_emitGuard;
 
 public:
     /// Constructor
     explicit MemberSignal(SignalHost& signalHost);
+
 };
 
 } // namespace sywu
