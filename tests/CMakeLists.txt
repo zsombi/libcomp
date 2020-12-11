@@ -5,7 +5,7 @@ enable_testing()
 
 include(configure-target)
 include(gtest)
-include_directories(${CMAKE_SOURCE_DIR}/tests)
+include_directories( ${SYWU_SOURCES}/tests ${GTEST_INCLUDE_DIRS} )
 
 set (SOURCES
     test_main.cpp
@@ -15,7 +15,7 @@ set (SOURCES
 )
 
 add_executable(unittests ${SOURCES})
-target_link_libraries(unittests gtest_main sywu)
-#target_include_directories(unittests PRIVATE ${CMAKE_SOURCE_DIR}/tests)
+target_link_libraries(unittests ${SYWU_TEST_LIBS} sywu)
+#target_include_directories(unittests PRIVATE ${SYWU_SOURCES}/tests)
 configure_target(unittests)
-add_test(NAME test-1 COMMAND unittests "--gtest_output=xml:unittest.xml" WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+add_test(NAME test-1 COMMAND unittests "--gtest_output=xml:unittest.xml" WORKING_DIRECTORY "${SYWU_BUILD_PATH}")
