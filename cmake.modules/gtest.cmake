@@ -1,4 +1,11 @@
 cmake_minimum_required(VERSION 3.6 FATAL_ERROR)
+
+find_package(GTest)
+if (${GTEST_FOUND})
+message( "Using GTest from System")
+SET ( SYWU_TEST_LIBS  GTest::GTest GTest::Main )
+else()
+
 #######################################
 # START OF GTEST DOWNLOAD
 #######################################
@@ -44,6 +51,7 @@ add_subdirectory("${GTEST_DOWNLOAD_DIR}/googletest-src"
 
 message(GTEST_SOURCE = ${gtest_SOURCE_DIR})
 message(GMOCK_SOURCE = ${gmock_SOURCE_DIR})
-include_directories("${gtest_SOURCE_DIR}/include"
-                 "${gmock_SOURCE_DIR}/include"
-)
+
+set(GTEST_INCLUDE_DIRS "${gtest_SOURCE_DIR}/include" "${gmock_SOURCE_DIR}/include")
+set(SYWU_TEST_LIBS gtest_main )
+endif()
