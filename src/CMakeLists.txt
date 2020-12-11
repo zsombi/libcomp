@@ -1,6 +1,4 @@
 cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
-set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};${CMAKE_CURRENT_LIST_DIR}/../cmake.modules" CACHE STRING "module-path")
-
 include(configure-target)
 
 project(sywu_lib VERSION 1.0.0 LANGUAGES CXX)
