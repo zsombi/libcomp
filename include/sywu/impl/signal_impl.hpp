@@ -21,9 +21,8 @@ public:
     /// Activates the slot
     InvokerType invoker = nullptr;
 
-protected:
-    explicit ConnectionConcept(SignalConcept& signal, InvokerType invoker)
-        : Connection(signal)
+    explicit ConnectionConcept(SignalConcept& signal, VMT vmt, InvokerType invoker)
+        : Connection(signal, vmt)
         , invoker(invoker)
     {
     }
@@ -34,6 +33,17 @@ class SYWU_TEMPLATE_API FunctionConnection final : public ConnectionConcept<Retu
 {
     using Base = ConnectionConcept<ReturnType, Arguments...>;
 
+    static bool isValid(const Connection& connection)
+    {
+        UNUSED(connection);
+        return true;
+    }
+
+    static void disconnect(Connection& connection)
+    {
+        UNUSED(connection);
+    }
+
     static decltype(auto) activate(Base& connection, Arguments&&... args)
     {
         return static_cast<FunctionConnection&>(connection).m_function(std::forward<Arguments>(args)...);
@@ -41,7 +51,7 @@ class SYWU_TEMPLATE_API FunctionConnection final : public ConnectionConcept<Retu
 
 public:
     explicit FunctionConnection(SignalConcept& signal, const FunctionType& function)
-        : Base(signal, &activate)
+        : Base(signal, {&isValid, &disconnect}, &activate)
         , m_function(function)
     {
     }
@@ -54,6 +64,18 @@ template <class TargetObject, typename ReturnType, typename... Arguments>
 class SYWU_TEMPLATE_API MethodConnection final : public ConnectionConcept<ReturnType, Arguments...>
 {
     using Base = ConnectionConcept<ReturnType, Arguments...>;
+
+    static bool isValid(const Connection& connection)
+    {
+        const auto& self = static_cast<const MethodConnection&>(connection);
+        return !self.m_target.expired();
+    }
+
+    static void disconnect(Connection& connection)
+    {
+        auto& self = static_cast<MethodConnection&>(connection);
+        self.m_target.reset();
+    }
 
     static decltype(auto) activate(Base& connection, Arguments&&... arguments)
     {
@@ -69,21 +91,10 @@ class SYWU_TEMPLATE_API MethodConnection final : public ConnectionConcept<Return
 public:
     using FunctionType = ReturnType(TargetObject::*)(Arguments...);
     explicit MethodConnection(SignalConcept& signal, std::shared_ptr<TargetObject> target, const FunctionType& function)
-        : Base(signal, &activate)
+        : Base(signal, {&isValid, &disconnect}, &activate)
         , m_target(target)
         , m_function(function)
     {        
-    }
-
-protected:
-    bool isValidOverride() const override
-    {
-        return !m_target.expired();
-    }
-
-    void disconnectOverride() override
-    {
-        m_target.reset();
     }
 
 private:
@@ -95,6 +106,18 @@ template <typename ReceiverSignal, typename ReturnType, typename... Arguments>
 class SYWU_TEMPLATE_API SignalConnection final : public ConnectionConcept<ReturnType, Arguments...>
 {
     using Base = ConnectionConcept<ReturnType, Arguments...>;
+
+    static bool isValid(const Connection& connection)
+    {
+        const auto& self = static_cast<const SignalConnection&>(connection);
+        return self.m_receiver != nullptr;
+    }
+
+    static void disconnect(Connection& connection)
+    {
+        auto& self = static_cast<SignalConnection&>(connection);
+        self.m_receiver = nullptr;
+    }
 
     static decltype(auto) activate(Base& connection, Arguments&&... arguments)
     {
@@ -111,20 +134,9 @@ class SYWU_TEMPLATE_API SignalConnection final : public ConnectionConcept<Return
 
 public:
     explicit SignalConnection(SignalConcept& sender, ReceiverSignal& receiver)
-        : Base(sender, &activate)
+        : Base(sender, {&isValid, &disconnect}, &activate)
         , m_receiver(&receiver)
     {
-    }
-
-protected:
-    bool isValidOverride() const override
-    {
-        return m_receiver != nullptr;
-    }
-
-    void disconnectOverride() override
-    {
-        m_receiver = nullptr;
     }
 
 private:
@@ -200,11 +212,7 @@ size_t SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::operator()(Arg
                 };
                 ConnectionSwapper backupConnection(connection);
                 relock_guard relock(*connection);
-                auto connectionConcept = std::dynamic_pointer_cast<ConnectionConcept<ReturnType, Arguments...>>(connection);
-                if (!connectionConcept)
-                {
-                    abort();
-                }
+                auto connectionConcept = std::static_pointer_cast<ConnectionConcept<ReturnType, Arguments...>>(connection);
                 connectionConcept->invoker(*connectionConcept, std::forward<Arguments>(arguments)...);
                 ++count;
             }

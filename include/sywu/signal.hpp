@@ -23,16 +23,14 @@ using ConnectionWeakPtr = std::weak_ptr<Connection>;
 /// The Connection holds a slot connected to a signal.
 class SYWU_API Connection : public Lockable, public std::enable_shared_from_this<Connection>
 {
-    friend class SignalConcept;
-
 public:
     /// Destructor.
-    virtual ~Connection() = default;
+    ~Connection() = default;
     /// Disconnect the connection from the signal.
     void disconnect()
     {
         lock_guard lock(*this);
-        disconnectOverride();
+        vmt.disconnect(*this);
         m_sender = nullptr;
     }
 
@@ -57,7 +55,7 @@ public:
     /// source signal or its trackers are destroyed.
     bool isValid() const
     {
-        return (m_sender != nullptr) && isValidOverride();
+        return (m_sender != nullptr) && vmt.isValid(*this);
     }
     /// Returns the enabled state of a connection.
     /// \return If the connection is enabled, returns \e true, otherwise returns \e false.
@@ -73,26 +71,23 @@ public:
     }
 
 protected:
+    using ValidatorFunction = bool(*)(const Connection&);
+    using DisconnectFunction = void(*)(Connection&);
+    struct VMT
+    {
+        ValidatorFunction isValid = nullptr;
+        DisconnectFunction disconnect = nullptr;
+    };
+
     /// Constructs the connection with the \a sender signal.
-    explicit Connection(SignalConcept& sender)
+    explicit Connection(SignalConcept& sender, VMT vmt)
         : m_sender(&sender)
+        , vmt(std::move(vmt))
     {
     }
 
-    /// To define connection specific validity, override this method.
-    /// \return If the override is valid, return \e true, otherwise \e false.
-    virtual bool isValidOverride() const
-    {
-        return true;
-    }
-
-    /// To define connection specific disconnect operations, override this method.
-    virtual void disconnectOverride()
-    {
-    }
-
-private:
     SignalConcept* m_sender = nullptr;
+    VMT vmt;
     std::atomic_bool m_isEnabled = true;
 };
 
