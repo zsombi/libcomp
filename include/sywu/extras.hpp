@@ -4,6 +4,13 @@
 #include <algorithm>
 #include <vector>
 
+#ifdef DEBUG
+#include <cassert>
+#define ASSERT(test)    if (!(test)) abort()
+#else
+#define ASSERT(test)    (void)(test)
+#endif
+
 namespace utils
 {
 
