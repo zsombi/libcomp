@@ -130,12 +130,12 @@ SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::~SignalConceptImpl()
 template <class DerivedClass, typename ReturnType, typename... Arguments>
 size_t SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::operator()(Arguments... arguments)
 {
-    if (isBlocked() || getSelf()->m_emitGuard.isLocked())
+    if (isBlocked() || m_emitGuard.isLocked())
     {
         return 0u;
     }
 
-    lock_guard guard(getSelf()->m_emitGuard);
+    lock_guard guard(m_emitGuard);
 
     SlotContainer slots;
     {
@@ -261,9 +261,18 @@ void SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::disconnect(Conne
  */
 template <class SignalHost, typename ReturnType, typename... Arguments>
 MemberSignal<SignalHost, ReturnType(Arguments...)>::MemberSignal(SignalHost& signalHost)
-    : m_emitGuard(signalHost)
+    : m_host(signalHost)
 {
 }
+
+template <class SignalHost, typename ReturnType, typename... Arguments>
+size_t MemberSignal<SignalHost, ReturnType(Arguments...)>::operator()(Arguments... arguments)
+{
+    auto lockedHost = m_host.shared_from_this();
+    ASSERT(lockedHost);
+    return BaseClass::operator()(std::forward<Arguments>(arguments)...);
+}
+
 
 } // namespace sywu
 

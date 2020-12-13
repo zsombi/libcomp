@@ -104,7 +104,6 @@ TEST_F(MemberSignalTest, deleteSenderObjectFromSlot)
 // The application developer should be able to delete a dynamic signal member of the sender object.
 TEST_F(MemberSignalTest, deleteSenderSignalInSlot)
 {
-    GTEST_SKIP();
     using SignalType = sywu::MemberSignal<TestObject, void()>;
     auto dynamicSignal = std::make_unique<SignalType>(*object);
 

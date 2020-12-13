@@ -120,12 +120,8 @@ public:
     /// source signal or its trackers are destroyed.
     bool isValid() const
     {
-        if (!m_sender)
-        {
-            return false;
-        }
         const auto slot = m_slot.lock();
-        if (!slot)
+        if (!slot || !m_sender)
         {
             return false;
         }
@@ -226,7 +222,7 @@ protected:
     /// The container of the connections.
     using SlotContainer = std::vector<std::shared_ptr<SlotType>>;
     SlotContainer m_slots;
-
+    BoolLock m_emitGuard;
 };
 
 template <typename ReturnType, typename... Arguments>
@@ -237,9 +233,6 @@ class Signal;
 template <typename ReturnType, typename... Arguments>
 class SYWU_TEMPLATE_API Signal<ReturnType(Arguments...)> : public SignalConceptImpl<Signal<ReturnType(Arguments...)>, ReturnType, Arguments...>
 {
-    friend class SignalConceptImpl<Signal<ReturnType(Arguments...)>, ReturnType, Arguments...>;
-    BoolLock m_emitGuard;
-
 public:
     /// Constructor.
     explicit Signal() = default;
@@ -253,12 +246,15 @@ class MemberSignal;
 template <class SignalHost, typename ReturnType, typename... Arguments>
 class SYWU_TEMPLATE_API MemberSignal<SignalHost, ReturnType(Arguments...)> : public SignalConceptImpl<MemberSignal<SignalHost, ReturnType(Arguments...)>, ReturnType, Arguments...>
 {
-    friend class SignalConceptImpl<MemberSignal<SignalHost, ReturnType(Arguments...)>, ReturnType, Arguments...>;
-    SharedPtrLock<SignalHost> m_emitGuard;
+    using BaseClass = SignalConceptImpl<MemberSignal<SignalHost, ReturnType(Arguments...)>, ReturnType, Arguments...>;
+    SignalHost& m_host;
 
 public:
     /// Constructor
     explicit MemberSignal(SignalHost& signalHost);
+
+    /// Emit override for method signals.
+    size_t operator()(Arguments... arguments);
 
 };
 
