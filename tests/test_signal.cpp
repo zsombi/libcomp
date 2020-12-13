@@ -311,3 +311,24 @@ TEST_F(SignalTest, deleteEmitterSignalFromSlot)
     EXPECT_FALSE(connection2.isValid());
     EXPECT_FALSE(connection3.isValid());
 }
+
+struct Functor
+{
+    void operator()(int& value)
+    {
+        value *= 10;
+    }
+};
+
+TEST_F(SignalTest, connectToFunctor)
+{
+    using SignalType = sywu::Signal<void(int&)>;
+    SignalType signal;
+    Functor fn;
+    auto connection = signal.connect(fn);
+    EXPECT_TRUE(connection.isValid());
+
+    int value = 10;
+    EXPECT_EQ(1, signal(value));
+    EXPECT_EQ(100, value);
+}
