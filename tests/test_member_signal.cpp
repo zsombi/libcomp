@@ -121,3 +121,52 @@ TEST_F(MemberSignalTest, deleteSenderSignalInSlot)
     EXPECT_FALSE(connection2.isValid());
     EXPECT_FALSE(connection3.isValid());
 }
+
+// The application developer should be able to declare a member signal in a PIMPL of a class
+// and track the public object.
+class Object : public std::enable_shared_from_this<Object>
+{
+public:
+    using SignalType = sywu::MemberSignal<Object, void()>;
+
+    explicit Object()
+        : d(new Pimpl(*this))
+    {
+    }
+
+    ~Object() = default;
+
+    auto& getSignal() const
+    {
+        return d->signal;
+    }
+
+private:
+    class Pimpl
+    {
+    public:
+        Object& p_data;
+        SignalType signal;
+        explicit Pimpl(Object& p)
+            : p_data(p)
+            , signal(p)
+        {
+        }
+    };
+
+    std::unique_ptr<Pimpl> d;
+};
+
+TEST_F(MemberSignalTest, pimplSignal)
+{
+    auto object = std::make_shared<Object>();
+    int value = 10;
+    auto slot = [&value]()
+    {
+        value *= 2;
+    };
+    auto connection = object->getSignal().connect(slot);
+    EXPECT_TRUE(connection.isValid());
+    EXPECT_EQ(1, object->getSignal()());
+    EXPECT_EQ(20, value);
+}
