@@ -1,5 +1,5 @@
-#ifndef TYPE_TRAITS_HPP
-#define TYPE_TRAITS_HPP
+#ifndef SYWU_TYPE_TRAITS_HPP
+#define SYWU_TYPE_TRAITS_HPP
 
 #include <array>
 #include <cstddef>
@@ -122,4 +122,4 @@ struct function_traits<TRet(*)(Args...)>
 
 } // namespace traits
 
-#endif // TYPE_TRAITS_HPP
+#endif // SYWU_TYPE_TRAITS_HPP

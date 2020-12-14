@@ -1,5 +1,5 @@
-#ifndef SIGNAL_IMPL_HPP
-#define SIGNAL_IMPL_HPP
+#ifndef SYWU_SIGNAL_IMPL_HPP
+#define SYWU_SIGNAL_IMPL_HPP
 
 #include <sywu/signal.hpp>
 #include <sywu/extras.hpp>
@@ -55,10 +55,7 @@ class SYWU_TEMPLATE_API MethodSlot final : public SlotImpl<ReturnType, Arguments
     ReturnType activate(Arguments&&... arguments) override
     {
         auto slotHost = m_target.lock();
-        if (!slotHost)
-        {
-            abort();
-        }
+        SYWU_ASSERT(slotHost);
         return std::invoke(m_function, slotHost, std::forward<Arguments>(arguments)...);
     }
 
@@ -189,7 +186,7 @@ template <class DerivedClass, typename ReturnType, typename... Arguments>
 Connection SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::addSlot(SlotPtr slot)
 {
     auto slotActivator = std::dynamic_pointer_cast<SlotType>(slot);
-    ASSERT(slotActivator);
+    SYWU_ASSERT(slotActivator);
     lock_guard lock(*this);
     m_slots.push_back(slotActivator);
     return Connection(*this, m_slots.back());
@@ -269,7 +266,7 @@ template <class SignalHost, typename ReturnType, typename... Arguments>
 size_t MemberSignal<SignalHost, ReturnType(Arguments...)>::operator()(Arguments... arguments)
 {
     auto lockedHost = m_host.shared_from_this();
-    ASSERT(lockedHost);
+    SYWU_ASSERT(lockedHost);
     return BaseClass::operator()(std::forward<Arguments>(arguments)...);
 }
 

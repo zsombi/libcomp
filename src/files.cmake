@@ -1,6 +1,5 @@
 set(HEADERS
     #SSIG
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/sywu/api_defs.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/sywu/extras.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/sywu/type_traits.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/sywu/guards.hpp

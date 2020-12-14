@@ -1,14 +1,14 @@
-#ifndef EXTRAS_HPP
-#define EXTRAS_HPP
+#ifndef SYWU_EXTRAS_HPP
+#define SYWU_EXTRAS_HPP
 
 #include <algorithm>
 #include <vector>
 
 #ifdef DEBUG
 #include <cassert>
-#define ASSERT(test)    if (!(test)) abort()
+#define SYWU_ASSERT(test)    if (!(test)) abort()
 #else
-#define ASSERT(test)    (void)(test)
+#define SYWU_ASSERT(test)    (void)(test)
 #endif
 
 namespace utils
@@ -37,4 +37,4 @@ void erase_if(std::vector<Type, Allocator>& v, const Predicate& predicate)
 
 }
 
-#endif // EXTRAS_HPP
+#endif // SYWU_EXTRAS_HPP

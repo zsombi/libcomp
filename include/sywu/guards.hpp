@@ -1,10 +1,9 @@
-#ifndef GUARDS_HPP
-#define GUARDS_HPP
+#ifndef SYWU_GUARDS_HPP
+#define SYWU_GUARDS_HPP
 
 #include <atomic>
 #include <utility>
 #include <config.hpp>
-#include <sywu/api_defs.hpp>
 #include <sywu/extras.hpp>
 #include <sywu/type_traits.hpp>
 
@@ -20,7 +19,7 @@ struct BoolLock : protected std::atomic_bool
     void lock()
     {
         const auto test = try_lock();
-        ASSERT(test);
+        SYWU_ASSERT(test);
     }
     bool try_lock()
     {
@@ -33,7 +32,7 @@ struct BoolLock : protected std::atomic_bool
     }
     void unlock()
     {
-        ASSERT(load());
+        SYWU_ASSERT(load());
         store(false);
     }
     bool isLocked()
@@ -51,13 +50,13 @@ struct SharedPtrLock
     }
     ~SharedPtrLock()
     {
-        ASSERT(!m_locked);
+        SYWU_ASSERT(!m_locked);
     }
 
     void lock()
     {
         const auto test = try_lock();
-        ASSERT(test);
+        SYWU_ASSERT(test);
     }
     bool try_lock()
     {
@@ -70,7 +69,7 @@ struct SharedPtrLock
     }
     void unlock()
     {
-        ASSERT(m_locked);
+        SYWU_ASSERT(m_locked);
         m_locked.reset();
     }
     bool isLocked()
@@ -85,13 +84,13 @@ private:
 
 class SYWU_API Lockable
 {
-#ifdef CONFIG_THREAD_ENABLED
+#ifdef SYWU_CONFIG_THREAD_ENABLED
     mutable std::mutex m_mutex;
 #else
     BoolLock m_mutex;
 #endif
 
-    DISABLE_COPY_OR_MOVE(Lockable)
+    SYWU_DISABLE_COPY_OR_MOVE(Lockable)
 
 public:
     explicit Lockable() = default;
@@ -114,7 +113,7 @@ public:
 };
 
 /// Lock guard.
-#ifdef CONFIG_THREAD_ENABLED
+#ifdef SYWU_CONFIG_THREAD_ENABLED
 using std::lock_gaurd;
 #else
 template <class Mutex>
@@ -133,7 +132,7 @@ public:
         m_mutex.unlock();
     }
 
-    DISABLE_COPY(lock_guard);
+    SYWU_DISABLE_COPY(lock_guard);
 private:
     mutex_type& m_mutex;
 };
@@ -156,7 +155,7 @@ public:
         m_mutex.lock();
     }
 
-    DISABLE_COPY(relock_guard);
+    SYWU_DISABLE_COPY(relock_guard);
 private:
     mutex_type& m_mutex;
 };
@@ -164,4 +163,4 @@ private:
 
 } // namespace sywu
 
-#endif // GUARDS_HPP
+#endif // SYWU_GUARDS_HPP

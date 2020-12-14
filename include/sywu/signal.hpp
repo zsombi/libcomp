@@ -1,5 +1,5 @@
-#ifndef SIGNAL_HPP
-#define SIGNAL_HPP
+#ifndef SYWU_SIGNAL_HPP
+#define SYWU_SIGNAL_HPP
 
 #include <atomic>
 #include <memory>
@@ -23,8 +23,8 @@ using SlotWeakPtr = std::weak_ptr<Slot>;
 /// or an other signal.
 class SYWU_API Slot : public Lockable, public std::enable_shared_from_this<Slot>
 {
-    DISABLE_COPY(Slot);
-    DISABLE_MOVE(Slot);
+    SYWU_DISABLE_COPY(Slot);
+    SYWU_DISABLE_MOVE(Slot);
 
 public:
     /// Destructor.
@@ -92,7 +92,7 @@ public:
     void disconnect()
     {
         auto slot = m_slot.lock();
-        ASSERT(slot);
+        SYWU_ASSERT(slot);
         lock_guard lock(*slot);
         slot->disconnect();
         m_slot.reset();
@@ -137,7 +137,7 @@ protected:
 /// connections of the signal.
 class SYWU_API SignalConcept
 {
-    DISABLE_COPY_OR_MOVE(SignalConcept);
+    SYWU_DISABLE_COPY_OR_MOVE(SignalConcept);
 
 public:
     /// The current connection. Use this member to access the connection that holds the connected
@@ -260,4 +260,4 @@ public:
 
 } // namespace sywu
 
-#endif // SIGNAL_HPP
+#endif // SYWU_SIGNAL_HPP
