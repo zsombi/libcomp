@@ -76,10 +76,10 @@ class SYWU_TEMPLATE_API Connection
 
 public:
     /// Constructor.
-    explicit Connection() = default;
+    Connection() = default;
     \
     /// Constructs the connection with the \a sender signal.
-    explicit Connection(SignalConcept& sender, SlotPtr slot)
+    Connection(SignalConcept& sender, SlotPtr slot)
         : m_sender(&sender)
         , m_slot(slot)
     {

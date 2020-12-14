@@ -23,5 +23,5 @@ jobs:
     - name: Run unit tests
       run: |
         cd tests
-        ./unittest
+        ./unittests
 
