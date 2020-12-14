@@ -59,7 +59,7 @@ class SYWU_TEMPLATE_API MethodSlot final : public SlotImpl<ReturnType, Arguments
         {
             abort();
         }
-        return (*slotHost.*m_function)(std::forward<Arguments>(arguments)...);
+        return std::invoke(m_function, slotHost, std::forward<Arguments>(arguments)...);
     }
 
 public:
@@ -92,11 +92,11 @@ class SYWU_TEMPLATE_API SignalSlot final : public SlotImpl<ReturnType, Arguments
     {
         if constexpr (std::is_void_v<ReturnType>)
         {
-            (*m_receiver)(std::forward<Arguments>(arguments)...);
+            std::invoke(*m_receiver, std::forward<Arguments>(arguments)...);
         }
         else
         {
-            return (*m_receiver)(std::forward<Arguments>(arguments)...);
+            return std::invoke(*m_receiver, std::forward<Arguments>(arguments)...);
         }
     }
 
