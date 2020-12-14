@@ -5,11 +5,8 @@
 #include <utility>
 #include <config.hpp>
 #include <sywu/api_defs.hpp>
+#include <sywu/extras.hpp>
 #include <sywu/type_traits.hpp>
-
-#ifdef DEBUG
-#include <cassert>
-#endif
 
 namespace sywu
 {
@@ -22,10 +19,8 @@ struct BoolLock : protected std::atomic_bool
     }
     void lock()
     {
-        if (!try_lock())
-        {
-            abort();
-        }
+        const auto test = try_lock();
+        ASSERT(test);
     }
     bool try_lock()
     {
@@ -38,10 +33,7 @@ struct BoolLock : protected std::atomic_bool
     }
     void unlock()
     {
-        if (!load())
-        {
-            abort();
-        }
+        ASSERT(load());
         store(false);
     }
     bool isLocked()
@@ -59,18 +51,13 @@ struct SharedPtrLock
     }
     ~SharedPtrLock()
     {
-        if (m_locked)
-        {
-            abort();
-        }
+        ASSERT(!m_locked);
     }
 
     void lock()
     {
-        if (!try_lock())
-        {
-            abort();
-        }
+        const auto test = try_lock();
+        ASSERT(test);
     }
     bool try_lock()
     {
@@ -83,10 +70,7 @@ struct SharedPtrLock
     }
     void unlock()
     {
-        if (!m_locked)
-        {
-            abort();
-        }
+        ASSERT(m_locked);
         m_locked.reset();
     }
     bool isLocked()

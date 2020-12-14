@@ -2,10 +2,10 @@
 //#include <sywu/signal.hpp>
 #include <sywu/impl/signal_impl.hpp>
 
-template class sywu::Signal<>;
-template class sywu::Signal<int>;
-template class sywu::Signal<int&>;
-template class sywu::Signal<int, std::string>;
+template class sywu::Signal<void()>;
+template class sywu::Signal<void(int)>;
+template class sywu::Signal<void(int&)>;
+template class sywu::Signal<void(int, std::string)>;
 
 class Object1 : public std::enable_shared_from_this<Object1>
 {
@@ -21,9 +21,9 @@ public:
 // The application developer can connect a signal to a function.
 TEST_F(SignalTest, connectToFunction)
 {
-    sywu::Signal<> signal;
+    sywu::Signal<void()> signal;
     auto connection = signal.connect(&function);
-    EXPECT_NE(nullptr, connection);
+    EXPECT_TRUE(connection.isValid());
 
     EXPECT_EQ(1, signal());
     EXPECT_EQ(1u, functionCallCount);
@@ -32,18 +32,18 @@ TEST_F(SignalTest, connectToFunction)
 // The application developer can connect a signal to a function with arguments.
 TEST_F(SignalTest, connectToFunctionWithArgument)
 {
-    sywu::Signal<int> signal;
+    sywu::Signal<void(int)> signal;
     auto connection = signal.connect(&functionWithIntArgument);
-    EXPECT_NE(nullptr, connection);
+    EXPECT_TRUE(connection.isValid());
 
     signal(10);
     EXPECT_EQ(10, intValue);
 }
 TEST_F(SignalTest, connectToFunctionWithTwoArguments)
 {
-    sywu::Signal<int, std::string> signal;
+    sywu::Signal<void(int, std::string)> signal;
     auto connection = signal.connect(&functionWithIntAndStringArgument);
-    EXPECT_NE(nullptr, connection);
+    EXPECT_TRUE(connection.isValid());
 
     signal(15, "alpha");
     EXPECT_EQ(15, intValue);
@@ -53,9 +53,9 @@ TEST_F(SignalTest, connectToFunctionWithTwoArguments)
 // The application developer can connect a signal to a function with reference arguments.
 TEST_F(SignalTest, connectToFunctionWithRefArgument)
 {
-    sywu::Signal<int&> signal;
+    sywu::Signal<void(int&)> signal;
     auto connection = signal.connect(&functionWithIntRefArgument);
-    EXPECT_NE(nullptr, connection);
+    EXPECT_TRUE(connection.isValid());
 
     int ivalue = 10;
     signal(std::ref(ivalue));
@@ -66,10 +66,10 @@ TEST_F(SignalTest, connectToFunctionWithRefArgument)
 // The application developer can connect a signal to a method.
 TEST_F(SignalTest, connectToMethod)
 {
-    sywu::Signal<> signal;
+    sywu::Signal<void()> signal;
     auto object = std::make_shared<Object1>();
     auto connection = signal.connect(object, &Object1::methodWithNoArg);
-    EXPECT_NE(nullptr, connection);
+    EXPECT_TRUE(connection.isValid());
 
     signal();
     EXPECT_EQ(1u, object->methodCallCount);
@@ -78,10 +78,10 @@ TEST_F(SignalTest, connectToMethod)
 // The application developer can connect a signal to a lambda.
 TEST_F(SignalTest, connectToLambda)
 {
-    sywu::Signal<> signal;
+    sywu::Signal<void()> signal;
     bool invoked = false;
     auto connection = signal.connect([&invoked]() { invoked = true; });
-    EXPECT_NE(nullptr, connection);
+    EXPECT_TRUE(connection.isValid());
 
     signal();
     EXPECT_TRUE(invoked);
@@ -90,12 +90,12 @@ TEST_F(SignalTest, connectToLambda)
 // The application developer can connect a signal to an other signal.
 TEST_F(SignalTest, connectToSignal)
 {
-    sywu::Signal<> signal1;
-    sywu::Signal<> signal2;
+    sywu::Signal<void()> signal1;
+    sywu::Signal<void()> signal2;
     bool invoked = false;
 
     auto connection = signal1.connect(signal2);
-    EXPECT_NE(nullptr, connection);
+    EXPECT_TRUE(connection.isValid());
 
     signal2.connect([&invoked] () { invoked = true; });
     signal1();
@@ -105,7 +105,7 @@ TEST_F(SignalTest, connectToSignal)
 // When the application developer emits the signal from a slot that is connected to that signal, the signal emit shall not happen
 TEST_F(SignalTest, emitSignalThatActivatedTheSlot)
 {
-    sywu::Signal<> signal;
+    sywu::Signal<void()> signal;
 
     auto slot = [&signal]()
     {
@@ -119,46 +119,38 @@ TEST_F(SignalTest, emitSignalThatActivatedTheSlot)
 // The application developer can disconnect a connection from a signal through its disconnect function.
 TEST_F(SignalTest, disconnectWithConnection)
 {
-    sywu::Signal<> signal;
-    sywu::ConnectionPtr connection;
+    sywu::Signal<void()> signal;
     auto slot = []()
     {
-        if (sywu::SignalConcept::currentConnection)
-        {
-            sywu::SignalConcept::currentConnection->disconnect();
-        }
+        sywu::SignalConcept::currentConnection.disconnect();
     };
-    connection = signal.connect(slot);
-    EXPECT_TRUE(connection->isValid());
+    auto connection = signal.connect(slot);
+    EXPECT_TRUE(connection.isValid());
     EXPECT_EQ(1u, signal());
-    EXPECT_FALSE(connection->isValid());
+    EXPECT_FALSE(connection.isValid());
     EXPECT_EQ(0u, signal());
 }
 
 // The application developer can disconnect a connection from a signal using the signal dicsonnect function.
 TEST_F(SignalTest, disconnectWithSignal)
 {
-    using SignalType = sywu::Signal<>;
+    using SignalType = sywu::Signal<void()>;
     SignalType signal;
-    sywu::ConnectionPtr connection;
     auto slot = []()
     {
-        if (sywu::SignalConcept::currentConnection)
-        {
-            sywu::SignalConcept::currentConnection->getSender<SignalType>()->disconnect(sywu::SignalConcept::currentConnection);
-        }
+        sywu::SignalConcept::currentConnection.getSender<SignalType>()->disconnect(sywu::SignalConcept::currentConnection);
     };
-    connection = signal.connect(slot);
-    EXPECT_TRUE(connection->isValid());
+    auto connection = signal.connect(slot);
+    EXPECT_TRUE(connection.isValid());
     EXPECT_EQ(1u, signal());
-    EXPECT_FALSE(connection->isValid());
+    EXPECT_FALSE(connection.isValid());
     EXPECT_EQ(0u, signal());
 }
 
 // The application developer can connect the same function multiple times.
 TEST_F(SignalTest, connectFunctionManyTimes)
 {
-    sywu::Signal<> signal;
+    sywu::Signal<void()> signal;
     signal.connect(&function);
     signal.connect(&function);
     signal.connect(&function);
@@ -169,7 +161,7 @@ TEST_F(SignalTest, connectFunctionManyTimes)
 // The application developer can connect the same method multiple times.
 TEST_F(SignalTest, connectMethodManyTimes)
 {
-    sywu::Signal<> signal;
+    sywu::Signal<void()> signal;
     auto object = std::make_shared<Object1>();
     signal.connect(object, &Object1::methodWithNoArg);
     signal.connect(object, &Object1::methodWithNoArg);
@@ -181,7 +173,7 @@ TEST_F(SignalTest, connectMethodManyTimes)
 // The application developer can connect the same lambda multiple times.
 TEST_F(SignalTest, connectLambdaManyTimes)
 {
-    sywu::Signal<> signal;
+    sywu::Signal<void()> signal;
     int invokeCount = 0;
     auto slot = [&invokeCount] { ++invokeCount; };
     signal.connect(slot);
@@ -194,12 +186,12 @@ TEST_F(SignalTest, connectLambdaManyTimes)
 // The application developer can connect the activated signal to a slot from an activated slot.
 TEST_F(SignalTest, connectToTheInvokingSignal)
 {
-    using SignalType = sywu::Signal<>;
+    using SignalType = sywu::Signal<void()>;
     SignalType signal;
 
     auto slot = []()
     {
-        sywu::SignalConcept::currentConnection->getSender<SignalType>()->connect(&function);
+        sywu::SignalConcept::currentConnection.getSender<SignalType>()->connect(&function);
     };
     signal.connect(slot);
     EXPECT_EQ(1, signal());
@@ -210,7 +202,7 @@ TEST_F(SignalTest, connectToTheInvokingSignal)
 // When a signal is blocked, it shall not activate its connections.
 TEST_F(SignalTest, blockSignal)
 {
-    using SignalType = sywu::Signal<>;
+    using SignalType = sywu::Signal<void()>;
     SignalType signal;
     signal.connect([](){});
     signal.connect([](){});
@@ -225,10 +217,10 @@ TEST_F(SignalTest, blockSignal)
 // The application developer can block the signal from a slot.
 TEST_F(SignalTest, blockSignalFromSlot)
 {
-    using SignalType = sywu::Signal<>;
+    using SignalType = sywu::Signal<void()>;
     SignalType signal;
     signal.connect([](){});
-    signal.connect([](){ sywu::SignalConcept::currentConnection->getSender()->setBlocked(true); });
+    signal.connect([](){ sywu::SignalConcept::currentConnection.getSender()->setBlocked(true); });
     signal.connect([](){});
 
     EXPECT_EQ(2, signal());
@@ -239,12 +231,12 @@ TEST_F(SignalTest, blockSignalFromSlot)
 // that connection is not activated in the same signal activation.
 TEST_F(SignalTest, connectionFromSlotGetsActivatedNextTime)
 {
-    using SignalType = sywu::Signal<>;
+    using SignalType = sywu::Signal<void()>;
     SignalType signal;
 
     auto slot = []()
     {
-        sywu::SignalConcept::currentConnection->getSender<SignalType>()->connect(&function);
+        sywu::SignalConcept::currentConnection.getSender<SignalType>()->connect(&function);
     };
     signal.connect(slot);
     EXPECT_EQ(1, signal());
@@ -258,7 +250,7 @@ TEST_F(SignalTest, connectionFromSlotGetsActivatedNextTime)
 // the connections in which the object is found are invalidated.
 TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted)
 {
-    using SignalType = sywu::Signal<>;
+    using SignalType = sywu::Signal<void()>;
     SignalType signal1;
     SignalType signal2;
     SignalType signal3;
@@ -273,13 +265,13 @@ TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted)
     };
     signal1.connect(objectDeleter);
     signal1();
-    EXPECT_FALSE(connection1->isValid());
-    EXPECT_FALSE(connection2->isValid());
-    EXPECT_FALSE(connection3->isValid());
+    EXPECT_FALSE(connection1.isValid());
+    EXPECT_FALSE(connection2.isValid());
+    EXPECT_FALSE(connection3.isValid());
 }
 TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted_noConenctionHolding)
 {
-    using SignalType = sywu::Signal<>;
+    using SignalType = sywu::Signal<void()>;
     SignalType signal1;
     SignalType signal2;
     SignalType signal3;
@@ -302,7 +294,7 @@ TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted_noConenctionHolding
 // The connections following the slot that destroys the signal are not processed.
 TEST_F(SignalTest, deleteEmitterSignalFromSlot)
 {
-    using SignalType = sywu::Signal<>;
+    using SignalType = sywu::Signal<void()>;
     auto signal = std::make_unique<SignalType>();
 
     auto killSignal = [&signal]()
@@ -315,7 +307,28 @@ TEST_F(SignalTest, deleteEmitterSignalFromSlot)
 
     EXPECT_EQ(1, (*signal)());
     EXPECT_EQ(nullptr, signal);
-    EXPECT_FALSE(connection1->isValid());
-    EXPECT_FALSE(connection2->isValid());
-    EXPECT_FALSE(connection3->isValid());
+    EXPECT_FALSE(connection1.isValid());
+    EXPECT_FALSE(connection2.isValid());
+    EXPECT_FALSE(connection3.isValid());
+}
+
+struct Functor
+{
+    void operator()(int& value)
+    {
+        value *= 10;
+    }
+};
+
+TEST_F(SignalTest, connectToFunctor)
+{
+    using SignalType = sywu::Signal<void(int&)>;
+    SignalType signal;
+    Functor fn;
+    auto connection = signal.connect(fn);
+    EXPECT_TRUE(connection.isValid());
+
+    int value = 10;
+    EXPECT_EQ(1, signal(value));
+    EXPECT_EQ(100, value);
 }

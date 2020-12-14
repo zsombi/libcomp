@@ -1,0 +1,27 @@
+name: CI
+
+on: 
+  pull_request:
+    branches: 
+      - main
+
+jobs:
+  build:
+    name: MacOS build
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Configure
+      run: |
+        mkdir ../build
+        cd ../build
+        cmake -DBUILD_GMOCK=OFF -DINSTALL_GTEST=ON -DSYWU_TESTS=ON ../sywu
+    - name: Build debug
+      run: |
+        cmake -DBUILD_GMOCK=OFF -DINSTALL_GTEST=ON -DSYWU_TESTS=ON ../sywu
+        cmake --build . --config Debug --target all
+    - name: Run unit tests
+      run: |
+        cd tests
+        ./unittests
+

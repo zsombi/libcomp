@@ -15,24 +15,87 @@ namespace sywu
 {
 
 class SignalConcept;
+class Slot;
+using SlotPtr = std::shared_ptr<Slot>;
+using SlotWeakPtr = std::weak_ptr<Slot>;
 
-class Connection;
-using ConnectionPtr = std::shared_ptr<Connection>;
-using ConnectionWeakPtr = std::weak_ptr<Connection>;
-
-/// The Connection holds a slot connected to a signal.
-class SYWU_API Connection : public Lockable, public std::enable_shared_from_this<Connection>
+/// The Slot holds the invocable connected to a signal. The slot hosts a function, a function object, a method
+/// or an other signal.
+class SYWU_API Slot : public Lockable, public std::enable_shared_from_this<Slot>
 {
-    friend class SignalConcept;
+    DISABLE_COPY(Slot);
+    DISABLE_MOVE(Slot);
 
 public:
     /// Destructor.
-    virtual ~Connection() = default;
+    virtual ~Slot() = default;
+
+    /// Returns the enabled state of a slot.
+    /// \return If the slot is enabled, returns \e true, otherwise returns \e false.
+    bool isEnabled() const
+    {
+        return m_isEnabled.load();
+    }
+    /// Sets the enabled state of a slot.
+    /// \param enable The enabled state to set for the slot.
+    void setEnabled(bool enable)
+    {
+        m_isEnabled.store(enable);
+    }
+
+    /// Checks the validity of a slot.
+    /// \return If the slot si valid, returns \e true, otherwise returns \e false.
+    virtual bool isValid() const = 0;
+
+    /// Disconnects a slot.
+    virtual void disconnect() = 0;
+
+protected:
+    /// Constructor
+    explicit Slot() = default;
+
+    /// The enabled state of the slot.
+    std::atomic_bool m_isEnabled = true;
+};
+
+///The SlotImpl declares the activation of a slot.
+template <typename ReturnType, typename... Arguments>
+class SYWU_TEMPLATE_API SlotImpl : public Slot
+{
+public:
+    /// Activates the slot with the arguments passed, and returns the slot's return value.
+    virtual ReturnType activate(Arguments&&...) = 0;
+};
+
+/// The Connection holds a slot connected to a signal. It is a token to a sender signal and a receiver
+/// slot connected to that signal.
+class SYWU_TEMPLATE_API Connection
+{
+    template <typename, typename, typename...>
+    friend class SignalConceptImpl;
+
+public:
+    /// Constructor.
+    Connection() = default;
+    \
+    /// Constructs the connection with the \a sender signal.
+    Connection(SignalConcept& sender, SlotPtr slot)
+        : m_sender(&sender)
+        , m_slot(slot)
+    {
+    }
+
+    /// Destructor.
+    ~Connection() = default;
+
     /// Disconnect the connection from the signal.
     void disconnect()
     {
-        lock_guard lock(*this);
-        disconnectOverride();
+        auto slot = m_slot.lock();
+        ASSERT(slot);
+        lock_guard lock(*slot);
+        slot->disconnect();
+        m_slot.reset();
         m_sender = nullptr;
     }
 
@@ -57,43 +120,17 @@ public:
     /// source signal or its trackers are destroyed.
     bool isValid() const
     {
-        return (m_sender != nullptr) && isValidOverride();
-    }
-    /// Returns the enabled state of a connection.
-    /// \return If the connection is enabled, returns \e true, otherwise returns \e false.
-    bool isEnabled() const
-    {
-        return m_isEnabled.load();
-    }
-    /// Sets the enabled state of a connection.
-    /// \param enable The enabled state to set for the connection.
-    void setEnabled(bool enable)
-    {
-        m_isEnabled.store(enable);
+        const auto slot = m_slot.lock();
+        if (!slot || !m_sender)
+        {
+            return false;
+        }
+        return slot->isValid();
     }
 
 protected:
-    /// Constructs the connection with the \a sender signal.
-    explicit Connection(SignalConcept& sender)
-        : m_sender(&sender)
-    {
-    }
-
-    /// To define connection specific validity, override this method.
-    /// \return If the override is valid, return \e true, otherwise \e false.
-    virtual bool isValidOverride() const
-    {
-        return true;
-    }
-
-    /// To define connection specific disconnect operations, override this method.
-    virtual void disconnectOverride()
-    {
-    }
-
-private:
     SignalConcept* m_sender = nullptr;
-    std::atomic_bool m_isEnabled = true;
+    SlotWeakPtr m_slot;
 };
 
 /// The SignalConcept defines the concept of the signals. Defined as a lockable for convenience, holds the
@@ -105,7 +142,7 @@ class SYWU_API SignalConcept
 public:
     /// The current connection. Use this member to access the connection that holds the connected
     /// slot that is activated by the signal.
-    static inline ConnectionPtr currentConnection;
+    static inline Connection currentConnection;
 
     /// Returns the blocked state of a signal.
     /// \return The blocked state of a signal. When a signal is blocked, the signal emission does nothing.
@@ -113,6 +150,7 @@ public:
     {
         return m_isBlocked.load();
     }
+
     /// Sets the \a blocked state of a signal.
     /// \param blocked The new blocked state of a signal.
     void setBlocked(bool blocked)
@@ -121,19 +159,15 @@ public:
     }
 
 protected:
-    /// The container of the connections.
-    using ConnectionContainer = std::vector<ConnectionPtr>;
     /// Hidden default constructor.
     explicit SignalConcept() = default;
-
-    ConnectionContainer m_connections;
 
 private:
     std::atomic_bool m_isBlocked = false;
 };
 
 /// Signal concept implementation.
-template <class DerivedClass, typename... Arguments>
+template <class DerivedClass, typename ReturnType, typename... Arguments>
 class SYWU_TEMPLATE_API SignalConceptImpl : public Lockable, public SignalConcept
 {
     DerivedClass* getSelf()
@@ -142,6 +176,8 @@ class SYWU_TEMPLATE_API SignalConceptImpl : public Lockable, public SignalConcep
     }
 
 public:
+    using SlotType = SlotImpl<ReturnType, Arguments...>;
+
     /// Destructor.
     ~SignalConceptImpl();
 
@@ -150,60 +186,76 @@ public:
     /// \return The number of connections invoked.
     size_t operator()(Arguments... arguments);
 
+    /// Adds a \a slot to the signal.
+    /// \param slot The slot to add to the signal.
+    /// \return The connection token with teh signal and the slot.
+    Connection addSlot(SlotPtr slot);
+
     /// Connects a \a method of a \a receiver to this signal.
     /// \param receiver The receiver of the connection.
     /// \param method The method to connect.
     /// \return Returns the shared pointer to the connection.
-    template <class SlotFunction>
-    std::enable_if_t<std::is_member_function_pointer_v<SlotFunction>, ConnectionPtr>
-    connect(std::shared_ptr<typename traits::function_traits<SlotFunction>::object> receiver, SlotFunction method);
+    template <class FunctionType>
+    std::enable_if_t<std::is_member_function_pointer_v<FunctionType>, Connection>
+    connect(std::shared_ptr<typename traits::function_traits<FunctionType>::object> receiver, FunctionType method);
 
     /// Connects a \a function, or a lambda to this signal.
     /// \param slot The function, functor or lambda to connect.
     /// \return Returns the shared pointer to the connection.
-    template <class SlotFunction>
-    std::enable_if_t<!std::is_base_of_v<sywu::SignalConcept, SlotFunction>, ConnectionPtr>
-    connect(const SlotFunction& slot);
+    template <class FunctionType>
+    std::enable_if_t<!std::is_base_of_v<sywu::SignalConcept, FunctionType>, Connection>
+    connect(const FunctionType& function);
 
     /// Creates a connection between this signal and a \a receiver signal.
     /// \param receiver The receiver signal connected to this signal.
     /// \return Returns the shared pointer to the connection.
-    template <class TLockableClass, class... SignalArguments>
-    ConnectionPtr connect(SignalConceptImpl<TLockableClass, SignalArguments...>& receiver);
+    template <class RDerivedClass, typename RReturnType, class... RArguments>
+    Connection connect(SignalConceptImpl<RDerivedClass, RReturnType, RArguments...>& receiver);
 
     /// Disconnects the \a connection passed as argument.
     /// \param connection The connection to disconnect. The connection is invalidated and removed from the signal.
-    void disconnect(ConnectionPtr connection);
+    void disconnect(Connection connection);
 
 protected:
     explicit SignalConceptImpl() = default;
+
+    /// The container of the connections.
+    using SlotContainer = std::vector<std::shared_ptr<SlotType>>;
+    SlotContainer m_slots;
+    BoolLock m_emitGuard;
 };
+
+template <typename ReturnType, typename... Arguments>
+class Signal;
 
 /// The signal template. Use this template to define a signal with a signature.
 /// \tparam Arguments The arguments of the signal, which is the signature of the signal.
-template <typename... Arguments>
-class SYWU_TEMPLATE_API Signal : public SignalConceptImpl<Signal<Arguments...>, Arguments...>
+template <typename ReturnType, typename... Arguments>
+class SYWU_TEMPLATE_API Signal<ReturnType(Arguments...)> : public SignalConceptImpl<Signal<ReturnType(Arguments...)>, ReturnType, Arguments...>
 {
-    friend class SignalConceptImpl<Signal<Arguments...>, Arguments...>;
-    BoolLock m_emitGuard;
-
 public:
     /// Constructor.
     explicit Signal() = default;
 };
 
+template <class SignalHost, typename ReturnType, typename... Arguments>
+class MemberSignal;
 /// Use this template to create a member signal on a class that derives from std::enable_shared_from_this<>.
 /// \tparam SignalHost The class on which the member signal is defined.
 /// \tparam Arguments The arguments of the signal, which is the signature of the signal.
-template <class SignalHost, typename... Arguments>
-class SYWU_TEMPLATE_API MemberSignal : public SignalConceptImpl<MemberSignal<SignalHost, Arguments...>, Arguments...>
+template <class SignalHost, typename ReturnType, typename... Arguments>
+class SYWU_TEMPLATE_API MemberSignal<SignalHost, ReturnType(Arguments...)> : public SignalConceptImpl<MemberSignal<SignalHost, ReturnType(Arguments...)>, ReturnType, Arguments...>
 {
-    friend class SignalConceptImpl<MemberSignal<SignalHost, Arguments...>, Arguments...>;
-    SharedPtrLock<SignalHost> m_emitGuard;
+    using BaseClass = SignalConceptImpl<MemberSignal<SignalHost, ReturnType(Arguments...)>, ReturnType, Arguments...>;
+    SignalHost& m_host;
 
 public:
     /// Constructor
     explicit MemberSignal(SignalHost& signalHost);
+
+    /// Emit override for method signals.
+    size_t operator()(Arguments... arguments);
+
 };
 
 } // namespace sywu
