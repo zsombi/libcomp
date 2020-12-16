@@ -3,6 +3,7 @@
 
 #include <sywu/signal.hpp>
 #include <sywu/extras.hpp>
+#include <sywu/impl/connection_impl.hpp>
 
 namespace sywu
 {
@@ -13,17 +14,17 @@ namespace
 template <typename FunctionType, typename ReturnType, typename... Arguments>
 class SYWU_TEMPLATE_API FunctionSlot final : public SlotImpl<ReturnType, Arguments...>
 {
-    bool isValid() const override
+    bool isValidOverride() const override
     {
         return m_isValid.load();
     }
 
-    void disconnect() override
+    void disconnectOverride() override
     {
         m_isValid.store(false);
     }
 
-    ReturnType activate(Arguments&&... args) override
+    ReturnType activateOverride(Arguments&&... args) override
     {
         return std::invoke(m_function, std::forward<Arguments>(args)...);
     }
@@ -42,17 +43,17 @@ private:
 template <class TargetObject, typename ReturnType, typename... Arguments>
 class SYWU_TEMPLATE_API MethodSlot final : public SlotImpl<ReturnType, Arguments...>
 {
-    bool isValid() const override
+    bool isValidOverride() const override
     {
         return !m_target.expired();
     }
 
-    void disconnect() override
+    void disconnectOverride() override
     {
         m_target.reset();
     }
 
-    ReturnType activate(Arguments&&... arguments) override
+    ReturnType activateOverride(Arguments&&... arguments) override
     {
         auto slotHost = m_target.lock();
         SYWU_ASSERT(slotHost);
@@ -75,17 +76,17 @@ private:
 template <typename ReceiverSignal, typename ReturnType, typename... Arguments>
 class SYWU_TEMPLATE_API SignalSlot final : public SlotImpl<ReturnType, Arguments...>
 {
-    bool isValid() const override
+    bool isValidOverride() const override
     {
         return m_receiver != nullptr;
     }
 
-    void disconnect() override
+    void disconnectOverride() override
     {
         m_receiver = nullptr;
     }
 
-    ReturnType activate(Arguments&&... arguments) override
+    ReturnType activateOverride(Arguments&&... arguments) override
     {
         if constexpr (std::is_void_v<ReturnType>)
         {

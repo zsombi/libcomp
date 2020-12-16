@@ -12,6 +12,7 @@ set (SOURCES
     test_base.hpp
     test_signal.cpp
     test_member_signal.cpp
+    test_trackers.cpp
 )
 
 add_executable(unittests ${SOURCES})

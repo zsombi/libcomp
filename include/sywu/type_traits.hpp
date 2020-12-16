@@ -17,6 +17,29 @@ struct remove_cvref
 template <typename T> using remove_cvref_t = typename remove_cvref<T>::type;
 
 
+/// Detect std::weak_ptr
+template <typename T, typename = void>
+struct is_weak_ptr : std::false_type {};
+
+template <typename T>
+struct is_weak_ptr<T, std::void_t<decltype(std::declval<T>().expired()), decltype(std::declval<T>().lock()), decltype(std::declval<T>().reset())>> : std::true_type {};
+
+template <typename T>
+constexpr bool is_weak_ptr_v = is_weak_ptr<T>::value;
+
+/// Detect std::shared_ptr
+template <typename T, typename = void>
+struct is_shared_ptr : std::false_type {};
+
+template <typename T>
+struct is_shared_ptr<T, std::void_t<decltype(std::declval<T>().operator*()), decltype(std::declval<T>().operator->())>> : std::true_type {};
+
+template <typename T>
+constexpr bool is_shared_ptr_v = is_shared_ptr<T>::value;
+
+
+/// \name Function traits
+/// \{
 enum FunctionType
 {
     /// Specifies an invalid function.
@@ -119,6 +142,8 @@ struct function_traits<TRet(*)(Args...)>
         static constexpr bool value = std::is_same_v<std::tuple<Args...>, std::tuple<TestArgs...>>;
     };
 };
+
+/// \}
 
 } // namespace traits
 
