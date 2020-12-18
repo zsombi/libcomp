@@ -3,6 +3,7 @@
 
 #include <sywu/signal.hpp>
 #include <sywu/extras.hpp>
+#include <sywu/impl/connection_impl.hpp>
 
 namespace sywu
 {
@@ -13,17 +14,17 @@ namespace
 template <typename FunctionType, typename ReturnType, typename... Arguments>
 class SYWU_TEMPLATE_API FunctionSlot final : public SlotImpl<ReturnType, Arguments...>
 {
-    bool isValid() const override
+    bool isValidOverride() const override
     {
         return m_isValid.load();
     }
 
-    void disconnect() override
+    void disconnectOverride() override
     {
         m_isValid.store(false);
     }
 
-    ReturnType activate(Arguments&&... args) override
+    ReturnType activateOverride(Arguments&&... args) override
     {
         return std::invoke(m_function, std::forward<Arguments>(args)...);
     }
@@ -42,17 +43,17 @@ private:
 template <class TargetObject, typename ReturnType, typename... Arguments>
 class SYWU_TEMPLATE_API MethodSlot final : public SlotImpl<ReturnType, Arguments...>
 {
-    bool isValid() const override
+    bool isValidOverride() const override
     {
         return !m_target.expired();
     }
 
-    void disconnect() override
+    void disconnectOverride() override
     {
         m_target.reset();
     }
 
-    ReturnType activate(Arguments&&... arguments) override
+    ReturnType activateOverride(Arguments&&... arguments) override
     {
         auto slotHost = m_target.lock();
         SYWU_ASSERT(slotHost);
@@ -75,17 +76,17 @@ private:
 template <typename ReceiverSignal, typename ReturnType, typename... Arguments>
 class SYWU_TEMPLATE_API SignalSlot final : public SlotImpl<ReturnType, Arguments...>
 {
-    bool isValid() const override
+    bool isValidOverride() const override
     {
         return m_receiver != nullptr;
     }
 
-    void disconnect() override
+    void disconnectOverride() override
     {
         m_receiver = nullptr;
     }
 
-    ReturnType activate(Arguments&&... arguments) override
+    ReturnType activateOverride(Arguments&&... arguments) override
     {
         if constexpr (std::is_void_v<ReturnType>)
         {
@@ -201,8 +202,7 @@ SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::connect(std::shared_p
     using SlotReturnType = typename traits::function_traits<FunctionType>::return_type;
 
     static_assert(
-        traits::function_traits<FunctionType>::arity == 0 ||
-        traits::function_traits<FunctionType>::template test_arguments<Arguments...>::value ||
+        traits::function_traits<FunctionType>::template test_arguments<Arguments...>::value &&
         std::is_same_v<ReturnType, SlotReturnType>,
         "Incompatible slot signature");
 
@@ -217,8 +217,7 @@ SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::connect(const Functio
 {
     using SlotReturnType = typename traits::function_traits<FunctionType>::return_type;
     static_assert(
-        traits::function_traits<FunctionType>::arity == 0 ||
-        traits::function_traits<FunctionType>::template test_arguments<Arguments...>::value ||
+        traits::function_traits<FunctionType>::template test_arguments<Arguments...>::value &&
         std::is_same_v<ReturnType, SlotReturnType>,
         "Incompatible slot signature");
 
@@ -232,7 +231,6 @@ Connection SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::connect(Si
 {
     using ReceiverSignal = SignalConceptImpl<RDerivedClass, RReturnType, RArguments...>;
     static_assert(
-        sizeof...(RArguments) == 0 ||
         std::is_same_v<std::tuple<Arguments...>, std::tuple<RArguments...>>,
         "incompatible signal signature");
 
@@ -243,12 +241,12 @@ Connection SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::connect(Si
 template <class DerivedClass, typename ReturnType, typename... Arguments>
 void SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::disconnect(Connection connection)
 {
-    if (!connection.isValid())
+    lock_guard guard(*this);
+    auto slot = connection.m_slot.lock();
+    if (!slot)
     {
         return;
     }
-    lock_guard guard(*this);
-    auto slot = connection.m_slot.lock();
     connection.disconnect();
     utils::erase(m_slots, slot);
 }
