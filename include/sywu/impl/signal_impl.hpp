@@ -202,8 +202,7 @@ SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::connect(std::shared_p
     using SlotReturnType = typename traits::function_traits<FunctionType>::return_type;
 
     static_assert(
-        traits::function_traits<FunctionType>::arity == 0 ||
-        traits::function_traits<FunctionType>::template test_arguments<Arguments...>::value ||
+        traits::function_traits<FunctionType>::template test_arguments<Arguments...>::value &&
         std::is_same_v<ReturnType, SlotReturnType>,
         "Incompatible slot signature");
 
@@ -218,8 +217,7 @@ SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::connect(const Functio
 {
     using SlotReturnType = typename traits::function_traits<FunctionType>::return_type;
     static_assert(
-        traits::function_traits<FunctionType>::arity == 0 ||
-        traits::function_traits<FunctionType>::template test_arguments<Arguments...>::value ||
+        traits::function_traits<FunctionType>::template test_arguments<Arguments...>::value &&
         std::is_same_v<ReturnType, SlotReturnType>,
         "Incompatible slot signature");
 
@@ -233,7 +231,6 @@ Connection SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::connect(Si
 {
     using ReceiverSignal = SignalConceptImpl<RDerivedClass, RReturnType, RArguments...>;
     static_assert(
-        sizeof...(RArguments) == 0 ||
         std::is_same_v<std::tuple<Arguments...>, std::tuple<RArguments...>>,
         "incompatible signal signature");
 
@@ -244,12 +241,12 @@ Connection SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::connect(Si
 template <class DerivedClass, typename ReturnType, typename... Arguments>
 void SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::disconnect(Connection connection)
 {
-    if (!connection.isValid())
+    lock_guard guard(*this);
+    auto slot = connection.m_slot.lock();
+    if (!slot)
     {
         return;
     }
-    lock_guard guard(*this);
-    auto slot = connection.m_slot.lock();
     connection.disconnect();
     utils::erase(m_slots, slot);
 }

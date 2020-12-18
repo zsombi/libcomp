@@ -43,7 +43,7 @@ public:
 TEST_F(MemberSignalTest, connectMemberSignalToFunction)
 {
     auto connection = object->signal.connect(&function);
-    EXPECT_TRUE(connection.isValid());
+    EXPECT_TRUE(connection);
 
     EXPECT_EQ(1, object->signal());
     EXPECT_EQ(1u, functionCallCount);
@@ -53,7 +53,7 @@ TEST_F(MemberSignalTest, connectMemberSignalToFunction)
 TEST_F(MemberSignalTest, connectToFunctionWithArgument)
 {
     auto connection = object->intSignal.connect(&functionWithIntArgument);
-    EXPECT_TRUE(connection.isValid());
+    EXPECT_TRUE(connection);
 
     EXPECT_EQ(1, object->intSignal(10));
     EXPECT_EQ(10, intValue);
@@ -63,7 +63,7 @@ TEST_F(MemberSignalTest, connectToFunctionWithTwoArguments)
 {
     auto object = std::make_shared<TestObject>();
     auto connection = object->intStrSignal.connect(&functionWithIntAndStringArgument);
-    EXPECT_TRUE(connection.isValid());
+    EXPECT_TRUE(connection);
 
     EXPECT_EQ(1, object->intStrSignal(15, "alpha"));
     EXPECT_EQ(15, intValue);
@@ -74,7 +74,7 @@ TEST_F(MemberSignalTest, connectToFunctionWithTwoArguments)
 TEST_F(MemberSignalTest, connectToFunctionWithRefArgument)
 {
     auto connection = object->intRefSignal.connect(&functionWithIntRefArgument);
-    EXPECT_TRUE(connection.isValid());
+    EXPECT_TRUE(connection);
 
     int ivalue = 10;
     EXPECT_EQ(1, object->intRefSignal(ivalue));
@@ -117,9 +117,9 @@ TEST_F(MemberSignalTest, deleteSenderSignalInSlot)
 
     EXPECT_EQ(1, (*dynamicSignal)());
     EXPECT_EQ(nullptr, dynamicSignal);
-    EXPECT_FALSE(connection1.isValid());
-    EXPECT_FALSE(connection2.isValid());
-    EXPECT_FALSE(connection3.isValid());
+    EXPECT_FALSE(connection1);
+    EXPECT_FALSE(connection2);
+    EXPECT_FALSE(connection3);
 }
 
 // The application developer should be able to declare a member signal in a PIMPL of a class
@@ -166,7 +166,7 @@ TEST_F(MemberSignalTest, pimplSignal)
         value *= 2;
     };
     auto connection = object->getSignal().connect(slot);
-    EXPECT_TRUE(connection.isValid());
+    EXPECT_TRUE(connection);
     EXPECT_EQ(1, object->getSignal()());
     EXPECT_EQ(20, value);
 }

@@ -45,15 +45,17 @@ public:
     /// \return If the slot is valid, returns \e true, otherwise returns \e false.
     bool isValid() const
     {
-        auto predicate = [](auto& tracker)
-        {
-            return !tracker->isValid(tracker.get());
-        };
-        const auto it = utils::find_if(m_trackers, predicate);
+        auto release = [](auto& tracker) { tracker->release(tracker.get()); };
+        auto it = utils::find_if(m_trackers, [](auto& tracker) { return !tracker->retain(tracker.get()); });
         if (it != m_trackers.end())
         {
+            // Release the retained ones
+            std::for_each(m_trackers.begin(), it, release);
             return false;
         }
+
+        // Release all, there is no weak_ptr locker that would disturb.
+        utils::for_each(m_trackers, release);
         return isValidOverride();
     }
 
@@ -61,6 +63,11 @@ public:
     void disconnect()
     {
         lock_guard lock(*this);
+        auto detacher = [this](auto& tracker)
+        {
+            tracker->detach(tracker.get(), shared_from_this());
+        };
+        utils::for_each(m_trackers, detacher);
         m_trackers.clear();
         disconnectOverride();
     }
@@ -153,10 +160,10 @@ public:
     /// Returns the valid state of the connection.
     /// \return If the connection is valid, returns \e true, otherwise returns \e false. A connection is invalid when its
     /// source signal or its trackers are destroyed.
-    bool isValid() const
+    operator bool() const
     {
         const auto slot = m_slot.lock();
-        if (!slot || !m_sender)
+        if (!m_sender || !slot)
         {
             return false;
         }
@@ -179,39 +186,49 @@ protected:
 class SYWU_API Trackable
 {
 public:
+    friend void intrusive_ptr_add_ref(Trackable* object)
+    {
+        object->retain();
+    }
+    friend void intrusive_ptr_release(Trackable* object)
+    {
+        if (object->release())
+        {
+            delete object;
+        }
+
+    }
     /// Destructor.
-    virtual ~Trackable()
+    ~Trackable()
     {
-        disconnectSlot();
+        disconnectSlots();
     }
 
-    /// Override this method to prevent the object from being deleted.
-    virtual bool retain()
+    /// Retains the trackable.
+    bool retain()
     {
-        return true;
+        ++m_refCount;
+        return m_refCount.load() > 0;
     }
 
-    /// Override this method to release the retained object.
-    virtual void release()
+    /// Releases the trackable.
+    /// \returns If the object should be released, returns true.
+    bool release()
     {
+        --m_refCount;
+        return (m_refCount <= 0);
     }
-
-    /// Checks whether the trackable has a slot attached.
-    bool isAttached() const
-    {
-        return m_slot != nullptr;
-    };
 
     /// Attaches a \a slot to the trackable.
     void attach(SlotPtr slot)
     {
-        m_slot = slot;
+        m_slots.push_back(slot);
     }
 
     /// Detaches the slot from the trackable.
-    void detach()
+    void detach(SlotPtr slot)
     {
-        m_slot.reset();
+        utils::erase_first(m_slots, slot);
     }
 
 protected:
@@ -220,17 +237,19 @@ protected:
 
     /// Disconnects the attached slot. Call thsi method if you want to disconnect from the attached slot
     /// earlier than at the trackable destruction time.
-    void disconnectSlot()
+    void disconnectSlots()
     {
-        if (m_slot)
+        while (!m_slots.empty())
         {
-            m_slot->disconnect();
-            m_slot.reset();
+            auto slot = m_slots.back();
+            m_slots.pop_back();
+            slot->disconnect();
         }
     }
 
 private:
-    SlotPtr m_slot;
+    std::vector<SlotPtr> m_slots;
+    std::atomic<int> m_refCount = 0;
 };
 
 } // namespace sywu

@@ -9,10 +9,14 @@ namespace sywu
 
 struct Tracker
 {
+    // Attaches a slot to a tracker.
     void (*attach)(Tracker*, SlotPtr) = nullptr;
-    bool (*isValid)(const Tracker*) = nullptr;
+    // Detaches a slot from a tracker.
+    void (*detach)(Tracker*, SlotPtr) = nullptr;
+    // Retains the tracker. If the retain succeeds, returns true, otherwise false.
     bool (*retain)(Tracker*) = nullptr;
-    void (*release)(Tracker*) = nullptr;
+    // Releases the tracker. If the tracker can be deleted, returns true, otherwise false..
+    bool (*release)(Tracker*) = nullptr;
 };
 
 namespace
@@ -39,50 +43,40 @@ struct TrackablePtrTracker : Tracker
         : trackable(trackable)
     {
         attach = &TrackablePtrTracker::_attach;
-        isValid = &TrackablePtrTracker::_isValid;
+        detach = &TrackablePtrTracker::_detach;
         retain = &TrackablePtrTracker::_retain;
         release = &TrackablePtrTracker::_release;
     }
     ~TrackablePtrTracker()
     {
-        trackable->detach();
-        trackable = nullptr;
     }
     static void _attach(Tracker* tracker, SlotPtr slot)
     {
         auto self = static_cast<TrackablePtrTracker*>(tracker);
         self->trackable->attach(slot);
     }
-    static bool _isValid(const Tracker* tracker)
+    static void _detach(Tracker* tracker, SlotPtr slot)
     {
-        auto self = static_cast<const TrackablePtrTracker*>(tracker);
-        if (!self)
-        {
-            return false;
-        }
-        if (!self->trackable)
-        {
-            return false;
-        }
-        return self->trackable->isAttached();
+        auto self = static_cast<TrackablePtrTracker*>(tracker);
+        self->trackable->detach(slot);
     }
     static bool _retain(Tracker* tracker)
     {
         auto self = static_cast<TrackablePtrTracker*>(tracker);
-        if (!self || !self->isValid(tracker))
+        if (!self || !self->trackable)
         {
             return false;
         }
         return self->trackable->retain();
     }
-    static void _release(Tracker* tracker)
+    static bool _release(Tracker* tracker)
     {
         auto self = static_cast<TrackablePtrTracker*>(tracker);
-        if (!self || !self->isValid(tracker))
+        if (!self || !self->trackable || self->trackable->release())
         {
-            return;
+            return true;
         }
-        self->trackable->release();
+        return false;
     }
 };
 
@@ -95,7 +89,7 @@ struct WeakPtrTracker : Tracker
         : trackable(trackable)
     {
         attach = &WeakPtrTracker::_attach;
-        isValid = &WeakPtrTracker::_isValid;
+        detach = &WeakPtrTracker::_detach;
         retain = &WeakPtrTracker::_retain;
         release = &WeakPtrTracker::_release;
     }
@@ -106,10 +100,8 @@ struct WeakPtrTracker : Tracker
     static void _attach(Tracker*, SlotPtr)
     {
     }
-    static bool _isValid(const Tracker* tracker)
+    static void _detach(Tracker*, SlotPtr)
     {
-        auto self = static_cast<const WeakPtrTracker*>(tracker);
-        return !self->trackable.expired();
     }
     static bool _retain(Tracker* tracker)
     {
@@ -117,10 +109,11 @@ struct WeakPtrTracker : Tracker
         self->locked = self->trackable.lock();
         return self->locked != nullptr;
     }
-    static void _release(Tracker* tracker)
+    static bool _release(Tracker* tracker)
     {
         auto self = static_cast<WeakPtrTracker*>(tracker);
         self->locked.reset();
+        return self->trackable.lock() == nullptr;
     }
 };
 
@@ -156,27 +149,47 @@ ReturnType SlotImpl<ReturnType, Arguments...>::activate(Arguments&&... args)
 {
     struct TrackerLock
     {
+        SlotImpl& slot;
         TrackersContainer& trackers;
-        TrackerLock(TrackersContainer& trackers)
-            :trackers(trackers)
+        TrackerLock(SlotImpl& slot, TrackersContainer& trackers)
+            : slot(slot)
+            , trackers(trackers)
         {
             auto it = utils::find_if(trackers, [](auto& tracker) { return !tracker->retain(tracker.get()); });
             SYWU_ASSERT(it == trackers.end());
         }
         ~TrackerLock()
         {
-            utils::for_each(trackers, [](auto& tracker) { tracker->release(tracker.get()); });
+            bool dirty = false;
+            for (auto it = trackers.begin(); it != trackers.end();)
+            {
+                auto& tracker = *it;
+                if (tracker->release(tracker.get()))
+                {
+                    dirty = true;
+                    it = trackers.erase(it);
+                }
+                else
+                {
+                    ++it;
+                }
+            }
+
+            if (dirty)
+            {
+                slot.disconnect();
+            }
         }
     };
 
-    TrackerLock lock(m_trackers);
+    TrackerLock lock(*this, m_trackers);
     return activateOverride(std::forward<Arguments>(args)...);
 }
 
 template <class... Trackables>
 Connection& Connection::bind(Trackables... trackables)
 {
-    SYWU_ASSERT(isValid());
+    SYWU_ASSERT(*this);
     auto slot = m_slot.lock();
     SYWU_ASSERT(slot);
     lock_guard lock(*slot);

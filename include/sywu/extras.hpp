@@ -20,6 +20,11 @@ void for_each(std::vector<Type, Allocator>& vector, const Predicate& predicate)
 {
     std::for_each(vector.begin(), vector.end(), predicate);
 }
+template <typename Type, typename Allocator, typename Predicate>
+void for_each(const std::vector<Type, Allocator>& vector, const Predicate& predicate)
+{
+    std::for_each(vector.begin(), vector.end(), predicate);
+}
 
 /// Vector utility, loops a \a predicate through a \a vector.
 template <typename Type, typename Allocator, typename Predicate>
@@ -38,6 +43,17 @@ template <typename Type, typename Allocator, typename VType>
 void erase(std::vector<Type, Allocator>& vector, const VType& value)
 {
     vector.erase(std::remove(vector.begin(), vector.end(), value), vector.end());
+}
+
+/// Vector utility, removes the first occurence of \a value from a \a vector.
+template <typename Type, typename Allocator, typename VType>
+void erase_first(std::vector<Type, Allocator>& vector, const VType& value)
+{
+    auto it = std::find(vector.begin(), vector.end(), value);
+    if (it != vector.end())
+    {
+        vector.erase(it);
+    }
 }
 
 /// Vector utility, removes the occurences for which the predicate gives affirmative result.

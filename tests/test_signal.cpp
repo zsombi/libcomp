@@ -22,7 +22,7 @@ TEST_F(SignalTest, connectToFunction)
 {
     sywu::Signal<void()> signal;
     auto connection = signal.connect(&function);
-    EXPECT_TRUE(connection.isValid());
+    EXPECT_TRUE(connection);
 
     EXPECT_EQ(1, signal());
     EXPECT_EQ(1u, functionCallCount);
@@ -33,7 +33,7 @@ TEST_F(SignalTest, connectToFunctionWithArgument)
 {
     sywu::Signal<void(int)> signal;
     auto connection = signal.connect(&functionWithIntArgument);
-    EXPECT_TRUE(connection.isValid());
+    EXPECT_TRUE(connection);
 
     signal(10);
     EXPECT_EQ(10, intValue);
@@ -42,7 +42,7 @@ TEST_F(SignalTest, connectToFunctionWithTwoArguments)
 {
     sywu::Signal<void(int, std::string)> signal;
     auto connection = signal.connect(&functionWithIntAndStringArgument);
-    EXPECT_TRUE(connection.isValid());
+    EXPECT_TRUE(connection);
 
     signal(15, "alpha");
     EXPECT_EQ(15, intValue);
@@ -54,7 +54,7 @@ TEST_F(SignalTest, connectToFunctionWithRefArgument)
 {
     sywu::Signal<void(int&)> signal;
     auto connection = signal.connect(&functionWithIntRefArgument);
-    EXPECT_TRUE(connection.isValid());
+    EXPECT_TRUE(connection);
 
     int ivalue = 10;
     signal(std::ref(ivalue));
@@ -68,7 +68,7 @@ TEST_F(SignalTest, connectToMethod)
     sywu::Signal<void()> signal;
     auto object = std::make_shared<Object1>();
     auto connection = signal.connect(object, &Object1::methodWithNoArg);
-    EXPECT_TRUE(connection.isValid());
+    EXPECT_TRUE(connection);
 
     signal();
     EXPECT_EQ(1u, object->methodCallCount);
@@ -80,7 +80,7 @@ TEST_F(SignalTest, connectToLambda)
     sywu::Signal<void()> signal;
     bool invoked = false;
     auto connection = signal.connect([&invoked]() { invoked = true; });
-    EXPECT_TRUE(connection.isValid());
+    EXPECT_TRUE(connection);
 
     signal();
     EXPECT_TRUE(invoked);
@@ -94,7 +94,7 @@ TEST_F(SignalTest, connectToSignal)
     bool invoked = false;
 
     auto connection = signal1.connect(signal2);
-    EXPECT_TRUE(connection.isValid());
+    EXPECT_TRUE(connection);
 
     signal2.connect([&invoked] () { invoked = true; });
     signal1();
@@ -124,9 +124,9 @@ TEST_F(SignalTest, disconnectWithConnection)
         sywu::SignalConcept::currentConnection.disconnect();
     };
     auto connection = signal.connect(slot);
-    EXPECT_TRUE(connection.isValid());
+    EXPECT_TRUE(connection);
     EXPECT_EQ(1u, signal());
-    EXPECT_FALSE(connection.isValid());
+    EXPECT_FALSE(connection);
     EXPECT_EQ(0u, signal());
 }
 
@@ -140,9 +140,9 @@ TEST_F(SignalTest, disconnectWithSignal)
         sywu::SignalConcept::currentConnection.getSender<SignalType>()->disconnect(sywu::SignalConcept::currentConnection);
     };
     auto connection = signal.connect(slot);
-    EXPECT_TRUE(connection.isValid());
+    EXPECT_TRUE(connection);
     EXPECT_EQ(1u, signal());
-    EXPECT_FALSE(connection.isValid());
+    EXPECT_FALSE(connection);
     EXPECT_EQ(0u, signal());
 }
 
@@ -264,9 +264,9 @@ TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted)
     };
     signal1.connect(objectDeleter);
     signal1();
-    EXPECT_FALSE(connection1.isValid());
-    EXPECT_FALSE(connection2.isValid());
-    EXPECT_FALSE(connection3.isValid());
+    EXPECT_FALSE(connection1);
+    EXPECT_FALSE(connection2);
+    EXPECT_FALSE(connection3);
 }
 TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted_noConenctionHolding)
 {
@@ -306,9 +306,9 @@ TEST_F(SignalTest, deleteEmitterSignalFromSlot)
 
     EXPECT_EQ(1, (*signal)());
     EXPECT_EQ(nullptr, signal);
-    EXPECT_FALSE(connection1.isValid());
-    EXPECT_FALSE(connection2.isValid());
-    EXPECT_FALSE(connection3.isValid());
+    EXPECT_FALSE(connection1);
+    EXPECT_FALSE(connection2);
+    EXPECT_FALSE(connection3);
 }
 
 struct Functor
@@ -325,7 +325,7 @@ TEST_F(SignalTest, connectToFunctor)
     SignalType signal;
     Functor fn;
     auto connection = signal.connect(fn);
-    EXPECT_TRUE(connection.isValid());
+    EXPECT_TRUE(connection);
 
     int value = 10;
     EXPECT_EQ(1, signal(value));
