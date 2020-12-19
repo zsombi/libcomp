@@ -1,16 +1,14 @@
 #ifndef SYWU_SIGNAL_HPP
 #define SYWU_SIGNAL_HPP
 
-#include <atomic>
-#include <memory>
-#include <type_traits>
-#include <utility>
-#include <vector>
+#include <sywu/wrap/atomic.hpp>
+#include <sywu/wrap/memory.hpp>
+#include <sywu/wrap/type_traits.hpp>
+#include <sywu/wrap/utility.hpp>
+#include <sywu/wrap/vector.hpp>
 
-#include <config.hpp>
+#include <sywu/config.hpp>
 #include <sywu/connection.hpp>
-#include <sywu/guards.hpp>
-#include <sywu/type_traits.hpp>
 
 namespace sywu
 {
@@ -45,7 +43,7 @@ protected:
     explicit SignalConcept() = default;
 
 private:
-    std::atomic_bool m_isBlocked = false;
+    atomic_bool m_isBlocked = false;
 };
 
 /// Signal concept implementation.
@@ -78,14 +76,14 @@ public:
     /// \param method The method to connect.
     /// \return Returns the shared pointer to the connection.
     template <class FunctionType>
-    std::enable_if_t<std::is_member_function_pointer_v<FunctionType>, Connection>
-    connect(std::shared_ptr<typename traits::function_traits<FunctionType>::object> receiver, FunctionType method);
+    enable_if_t<is_member_function_pointer_v<FunctionType>, Connection>
+    connect(shared_ptr<typename function_traits<FunctionType>::object> receiver, FunctionType method);
 
     /// Connects a \a function, or a lambda to this signal.
     /// \param slot The function, functor or lambda to connect.
     /// \return Returns the shared pointer to the connection.
     template <class FunctionType>
-    std::enable_if_t<!std::is_base_of_v<sywu::SignalConcept, FunctionType>, Connection>
+    enable_if_t<!is_base_of_v<sywu::SignalConcept, FunctionType>, Connection>
     connect(const FunctionType& function);
 
     /// Creates a connection between this signal and a \a receiver signal.
@@ -102,9 +100,9 @@ protected:
     explicit SignalConceptImpl() = default;
 
     /// The container of the connections.
-    using SlotContainer = std::vector<std::shared_ptr<SlotType>>;
+    using SlotContainer = vector<shared_ptr<SlotType>>;
     SlotContainer m_slots;
-    BoolLock m_emitGuard;
+    FlagGuard m_emitGuard;
 };
 
 template <typename ReturnType, typename... Arguments>
@@ -122,7 +120,7 @@ public:
 
 template <class SignalHost, typename ReturnType, typename... Arguments>
 class MemberSignal;
-/// Use this template to create a member signal on a class that derives from std::enable_shared_from_this<>.
+/// Use this template to create a member signal on a class that derives from enable_shared_from_this<>.
 /// \tparam SignalHost The class on which the member signal is defined.
 /// \tparam Arguments The arguments of the signal, which is the signature of the signal.
 template <class SignalHost, typename ReturnType, typename... Arguments>

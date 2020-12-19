@@ -10,6 +10,6 @@ include(files.cmake)
 add_library(sywu "")
 target_sources(sywu
     PRIVATE ${SOURCES} ${PRIVATE_HEADERS}
-    PUBLIC ${HEADERS} ${CMAKE_CURRENT_SOURCE_DIR}/../include/config.hpp)
+    PUBLIC ${HEADERS})
 #target_include_directories(sywu PUBLIC ${SYWU_HEADER_PATH})
 configure_target(sywu)

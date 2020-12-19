@@ -59,15 +59,18 @@
     SYWU_DISABLE_COPY(Class) \
     SYWU_DISABLE_MOVE(Class)
 
-#ifdef SYWU_CONFIG_THREAD_ENABLED
-#include <mutex>
-#endif
-
 #ifdef SYWU_CONFIG_LIBRARY
 #   define SYWU_API     SYWU_DECL_EXPORT
 #else
 #   define SYWU_API     SYWU_DECL_IMPORT
 #endif
 #define SYWU_TEMPLATE_API
+
+#ifdef DEBUG
+#include <cassert>
+#define SYWU_ASSERT(test)    if (!(test)) abort()
+#else
+#define SYWU_ASSERT(test)    (void)(test)
+#endif
 
 #endif // SYWU_CONFIG_HPP
