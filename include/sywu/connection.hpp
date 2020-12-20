@@ -1,10 +1,11 @@
 #ifndef SYWU_CONNECTION_HPP
 #define SYWU_CONNECTION_HPP
 
-#include <config.hpp>
-#include <sywu/extras.hpp>
-#include <sywu/guards.hpp>
-#include <sywu/type_traits.hpp>
+#include <sywu/wrap/memory.hpp>
+#include <sywu/config.hpp>
+#include <sywu/wrap/vector.hpp>
+#include <sywu/wrap/mutex.hpp>
+#include <sywu/wrap/type_traits.hpp>
 
 namespace sywu
 {
@@ -12,15 +13,15 @@ namespace sywu
 class SignalConcept;
 
 struct Tracker;
-using TrackerPtr = std::unique_ptr<Tracker>;
+using TrackerPtr = unique_ptr<Tracker>;
 
 class Slot;
-using SlotPtr = std::shared_ptr<Slot>;
-using SlotWeakPtr = std::weak_ptr<Slot>;
+using SlotPtr = shared_ptr<Slot>;
+using SlotWeakPtr = weak_ptr<Slot>;
 
 /// The Slot holds the invocable connected to a signal. The slot hosts a function, a function object, a method
 /// or an other signal.
-class SYWU_API Slot : public Lockable, public std::enable_shared_from_this<Slot>
+class SYWU_API Slot : public Lockable, public enable_shared_from_this<Slot>
 {
     SYWU_DISABLE_COPY_OR_MOVE(Slot);
 
@@ -28,34 +29,21 @@ public:
     /// Destructor.
     virtual ~Slot() = default;
 
-    /// Returns the enabled state of a slot.
-    /// \return If the slot is enabled, returns \e true, otherwise returns \e false.
-    bool isEnabled() const
-    {
-        return m_isEnabled.load();
-    }
-    /// Sets the enabled state of a slot.
-    /// \param enable The enabled state to set for the slot.
-    void setEnabled(bool enable)
-    {
-        m_isEnabled.store(enable);
-    }
-
     /// Checks the validity of a slot.
     /// \return If the slot is valid, returns \e true, otherwise returns \e false.
     bool isValid() const
     {
         auto release = [](auto& tracker) { tracker->release(tracker.get()); };
-        auto it = utils::find_if(m_trackers, [](auto& tracker) { return !tracker->retain(tracker.get()); });
+        auto it = find_if(m_trackers, [](auto& tracker) { return !tracker->retain(tracker.get()); });
         if (it != m_trackers.end())
         {
             // Release the retained ones
-            std::for_each(m_trackers.begin(), it, release);
+            for_each(m_trackers.begin(), it, release);
             return false;
         }
 
         // Release all, there is no weak_ptr locker that would disturb.
-        utils::for_each(m_trackers, release);
+        for_each(m_trackers, release);
         return isValidOverride();
     }
 
@@ -67,7 +55,7 @@ public:
         {
             tracker->detach(tracker.get(), shared_from_this());
         };
-        utils::for_each(m_trackers, detacher);
+        for_each(m_trackers, detacher);
         m_trackers.clear();
         disconnectOverride();
     }
@@ -81,7 +69,7 @@ public:
 
 protected:
     /// The container with the binded trackers.
-    using TrackersContainer = std::vector<TrackerPtr>;
+    using TrackersContainer = vector<TrackerPtr>;
 
     /// Constructor.
     explicit Slot() = default;
@@ -93,8 +81,6 @@ protected:
 
     /// The binded trackers.
     TrackersContainer m_trackers;
-    /// The enabled state of the slot.
-    std::atomic_bool m_isEnabled = true;
 };
 
 ///The SlotImpl declares the activation of a slot.
@@ -228,7 +214,7 @@ public:
     /// Detaches the slot from the trackable.
     void detach(SlotPtr slot)
     {
-        utils::erase_first(m_slots, slot);
+        erase_first(m_slots, slot);
     }
 
 protected:
@@ -248,8 +234,8 @@ protected:
     }
 
 private:
-    std::vector<SlotPtr> m_slots;
-    std::atomic<int> m_refCount = 0;
+    vector<SlotPtr> m_slots;
+    atomic_int m_refCount = 0;
 };
 
 } // namespace sywu

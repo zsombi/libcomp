@@ -1,8 +1,11 @@
 #ifndef SYWU_SIGNAL_IMPL_HPP
 #define SYWU_SIGNAL_IMPL_HPP
 
+#include <sywu/wrap/memory.hpp>
+#include <sywu/wrap/utility.hpp>
+#include <sywu/wrap/functional.hpp>
 #include <sywu/signal.hpp>
-#include <sywu/extras.hpp>
+#include <sywu/wrap/vector.hpp>
 #include <sywu/impl/connection_impl.hpp>
 
 namespace sywu
@@ -26,7 +29,7 @@ class SYWU_TEMPLATE_API FunctionSlot final : public SlotImpl<ReturnType, Argumen
 
     ReturnType activateOverride(Arguments&&... args) override
     {
-        return std::invoke(m_function, std::forward<Arguments>(args)...);
+        return invoke(m_function, forward<Arguments>(args)...);
     }
 
 public:
@@ -37,7 +40,7 @@ public:
 
 private:
     FunctionType m_function;
-    std::atomic_bool m_isValid = true;
+    atomic_bool m_isValid = true;
 };
 
 template <class TargetObject, typename ReturnType, typename... Arguments>
@@ -57,19 +60,19 @@ class SYWU_TEMPLATE_API MethodSlot final : public SlotImpl<ReturnType, Arguments
     {
         auto slotHost = m_target.lock();
         SYWU_ASSERT(slotHost);
-        return std::invoke(m_function, slotHost, std::forward<Arguments>(arguments)...);
+        return invoke(m_function, slotHost, forward<Arguments>(arguments)...);
     }
 
 public:
     using FunctionType = ReturnType(TargetObject::*)(Arguments...);
-    explicit MethodSlot(std::shared_ptr<TargetObject> target, const FunctionType& function)
+    explicit MethodSlot(shared_ptr<TargetObject> target, const FunctionType& function)
         : m_target(target)
         , m_function(function)
     {        
     }
 
 private:
-    std::weak_ptr<TargetObject> m_target;
+    weak_ptr<TargetObject> m_target;
     FunctionType m_function;
 };
 
@@ -88,13 +91,13 @@ class SYWU_TEMPLATE_API SignalSlot final : public SlotImpl<ReturnType, Arguments
 
     ReturnType activateOverride(Arguments&&... arguments) override
     {
-        if constexpr (std::is_void_v<ReturnType>)
+        if constexpr (is_void_v<ReturnType>)
         {
-            std::invoke(*m_receiver, std::forward<Arguments>(arguments)...);
+            invoke(*m_receiver, forward<Arguments>(arguments)...);
         }
         else
         {
-            return std::invoke(*m_receiver, std::forward<Arguments>(arguments)...);
+            return invoke(*m_receiver, forward<Arguments>(arguments)...);
         }
     }
 
@@ -122,7 +125,7 @@ SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::~SignalConceptImpl()
             slot->disconnect();
         }
     };
-    utils::for_each(m_slots, invalidate);
+    for_each(m_slots, invalidate);
 }
 
 template <class DerivedClass, typename ReturnType, typename... Arguments>
@@ -157,7 +160,7 @@ size_t SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::operator()(Arg
                 relock_guard relock(*slot);
                 disconnect(Connection(*this, slot));
             }
-            else if (slot->isEnabled())
+            else
             {
                 struct ConnectionSwapper
                 {
@@ -165,7 +168,7 @@ size_t SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::operator()(Arg
                     explicit ConnectionSwapper(Connection connection)
                         : previousConnection(SignalConcept::currentConnection)
                     {
-                        SignalConcept::currentConnection = std::move(connection);
+                        SignalConcept::currentConnection = move(connection);
                     }
                     ~ConnectionSwapper()
                     {
@@ -174,7 +177,7 @@ size_t SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::operator()(Arg
                 };
                 ConnectionSwapper backupConnection(Connection(*this, slot));
                 relock_guard relock(*slot);
-                slot->activate(std::forward<Arguments>(arguments)...);
+                slot->activate(forward<Arguments>(arguments)...);
                 ++count;
             }
         }
@@ -186,7 +189,7 @@ size_t SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::operator()(Arg
 template <class DerivedClass, typename ReturnType, typename... Arguments>
 Connection SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::addSlot(SlotPtr slot)
 {
-    auto slotActivator = std::dynamic_pointer_cast<SlotType>(slot);
+    auto slotActivator = dynamic_pointer_cast<SlotType>(slot);
     SYWU_ASSERT(slotActivator);
     lock_guard lock(*this);
     m_slots.push_back(slotActivator);
@@ -195,33 +198,33 @@ Connection SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::addSlot(Sl
 
 template <class DerivedClass, typename ReturnType, typename... Arguments>
 template <class FunctionType>
-std::enable_if_t<std::is_member_function_pointer_v<FunctionType>, Connection>
-SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::connect(std::shared_ptr<typename traits::function_traits<FunctionType>::object> receiver, FunctionType method)
+enable_if_t<is_member_function_pointer_v<FunctionType>, Connection>
+SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::connect(shared_ptr<typename function_traits<FunctionType>::object> receiver, FunctionType method)
 {
-    using Object = typename traits::function_traits<FunctionType>::object;
-    using SlotReturnType = typename traits::function_traits<FunctionType>::return_type;
+    using Object = typename function_traits<FunctionType>::object;
+    using SlotReturnType = typename function_traits<FunctionType>::return_type;
 
     static_assert(
-        traits::function_traits<FunctionType>::template test_arguments<Arguments...>::value &&
-        std::is_same_v<ReturnType, SlotReturnType>,
+        function_traits<FunctionType>::template test_arguments<Arguments...>::value &&
+        is_same_v<ReturnType, SlotReturnType>,
         "Incompatible slot signature");
 
-    auto slot = std::make_shared<MethodSlot<Object, SlotReturnType, Arguments...>>(receiver, method);
+    auto slot = make_shared<Slot, MethodSlot<Object, SlotReturnType, Arguments...>>(receiver, method);
     return addSlot(slot);
 }
 
 template <class DerivedClass, typename ReturnType, typename... Arguments>
 template <class FunctionType>
-std::enable_if_t<!std::is_base_of_v<sywu::SignalConcept, FunctionType>, Connection>
+enable_if_t<!is_base_of_v<sywu::SignalConcept, FunctionType>, Connection>
 SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::connect(const FunctionType& function)
 {
-    using SlotReturnType = typename traits::function_traits<FunctionType>::return_type;
+    using SlotReturnType = typename function_traits<FunctionType>::return_type;
     static_assert(
-        traits::function_traits<FunctionType>::template test_arguments<Arguments...>::value &&
-        std::is_same_v<ReturnType, SlotReturnType>,
+        function_traits<FunctionType>::template test_arguments<Arguments...>::value &&
+        is_same_v<ReturnType, SlotReturnType>,
         "Incompatible slot signature");
 
-    auto slot = std::make_shared<FunctionSlot<FunctionType, SlotReturnType, Arguments...>>(function);
+    auto slot = make_shared<Slot, FunctionSlot<FunctionType, SlotReturnType, Arguments...>>(function);
     return addSlot(slot);
 }
 
@@ -231,10 +234,10 @@ Connection SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::connect(Si
 {
     using ReceiverSignal = SignalConceptImpl<RDerivedClass, RReturnType, RArguments...>;
     static_assert(
-        std::is_same_v<std::tuple<Arguments...>, std::tuple<RArguments...>>,
+        is_same_v<tuple<Arguments...>, tuple<RArguments...>>,
         "incompatible signal signature");
 
-    auto slot = std::make_shared<SignalSlot<ReceiverSignal, RReturnType, Arguments...>>(receiver);
+    auto slot = make_shared<Slot, SignalSlot<ReceiverSignal, RReturnType, Arguments...>>(receiver);
     return addSlot(slot);
 }
 
@@ -248,7 +251,7 @@ void SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::disconnect(Conne
         return;
     }
     connection.disconnect();
-    utils::erase(m_slots, slot);
+    erase(m_slots, slot);
 }
 
 /******************************************************************************
@@ -265,7 +268,7 @@ size_t MemberSignal<SignalHost, ReturnType(Arguments...)>::operator()(Arguments.
 {
     auto lockedHost = m_host.shared_from_this();
     SYWU_ASSERT(lockedHost);
-    return BaseClass::operator()(std::forward<Arguments>(arguments)...);
+    return BaseClass::operator()(forward<Arguments>(arguments)...);
 }
 
 

@@ -2,7 +2,7 @@
 //#include <sywu/signal.hpp>
 #include <sywu/impl/signal_impl.hpp>
 
-class TestObject : public std::enable_shared_from_this<TestObject>
+class TestObject : public sywu::enable_shared_from_this<TestObject>
 {
 public:
     int voidMethodCallCount = 0;
@@ -32,11 +32,11 @@ class MemberSignalTest : public SignalTest
 {
 public:
     explicit MemberSignalTest()
-        : object(std::make_shared<TestObject>())
+        : object(sywu::make_shared<TestObject>())
     {
     }
 
-    std::shared_ptr<TestObject> object;
+    sywu::shared_ptr<TestObject> object;
 };
 
 // The application developer can connect a member signal to a function.
@@ -61,7 +61,7 @@ TEST_F(MemberSignalTest, connectToFunctionWithArgument)
 
 TEST_F(MemberSignalTest, connectToFunctionWithTwoArguments)
 {
-    auto object = std::make_shared<TestObject>();
+    auto object = sywu::make_shared<TestObject>();
     auto connection = object->intStrSignal.connect(&functionWithIntAndStringArgument);
     EXPECT_TRUE(connection);
 
@@ -85,7 +85,7 @@ TEST_F(MemberSignalTest, connectToFunctionWithRefArgument)
 // The signal should survive the sender object deletion.
 TEST_F(MemberSignalTest, deleteSenderObjectFromSlot)
 {
-    std::weak_ptr<TestObject> watcher = object;
+    sywu::weak_ptr<TestObject> watcher = object;
     auto deleter = [this]()
     {
         object.reset();
@@ -105,7 +105,7 @@ TEST_F(MemberSignalTest, deleteSenderObjectFromSlot)
 TEST_F(MemberSignalTest, deleteSenderSignalInSlot)
 {
     using SignalType = sywu::MemberSignal<TestObject, void()>;
-    auto dynamicSignal = std::make_unique<SignalType>(*object);
+    auto dynamicSignal = sywu::make_unique<SignalType>(*object);
 
     auto killSignal = [&dynamicSignal]()
     {
@@ -124,7 +124,7 @@ TEST_F(MemberSignalTest, deleteSenderSignalInSlot)
 
 // The application developer should be able to declare a member signal in a PIMPL of a class
 // and track the public object.
-class Object : public std::enable_shared_from_this<Object>
+class Object : public sywu::enable_shared_from_this<Object>
 {
 public:
     using SignalType = sywu::MemberSignal<Object, void()>;
@@ -154,12 +154,12 @@ private:
         }
     };
 
-    std::unique_ptr<Pimpl> d;
+    sywu::unique_ptr<Pimpl> d;
 };
 
 TEST_F(MemberSignalTest, pimplSignal)
 {
-    auto object = std::make_shared<Object>();
+    auto object = sywu::make_shared<Object>();
     int value = 10;
     auto slot = [&value]()
     {

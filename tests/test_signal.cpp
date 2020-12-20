@@ -6,7 +6,7 @@ template class sywu::Signal<void(int)>;
 template class sywu::Signal<void(int&)>;
 template class sywu::Signal<void(int, std::string)>;
 
-class Object1 : public std::enable_shared_from_this<Object1>
+class Object1 : public sywu::enable_shared_from_this<Object1>
 {
 public:
     void methodWithNoArg()
@@ -57,7 +57,7 @@ TEST_F(SignalTest, connectToFunctionWithRefArgument)
     EXPECT_TRUE(connection);
 
     int ivalue = 10;
-    signal(std::ref(ivalue));
+    signal(sywu::ref(ivalue));
     EXPECT_EQ(10, intValue);
     EXPECT_EQ(20, ivalue);
 }
@@ -66,7 +66,7 @@ TEST_F(SignalTest, connectToFunctionWithRefArgument)
 TEST_F(SignalTest, connectToMethod)
 {
     sywu::Signal<void()> signal;
-    auto object = std::make_shared<Object1>();
+    auto object = sywu::make_shared<Object1>();
     auto connection = signal.connect(object, &Object1::methodWithNoArg);
     EXPECT_TRUE(connection);
 
@@ -161,7 +161,7 @@ TEST_F(SignalTest, connectFunctionManyTimes)
 TEST_F(SignalTest, connectMethodManyTimes)
 {
     sywu::Signal<void()> signal;
-    auto object = std::make_shared<Object1>();
+    auto object = sywu::make_shared<Object1>();
     signal.connect(object, &Object1::methodWithNoArg);
     signal.connect(object, &Object1::methodWithNoArg);
     signal.connect(object, &Object1::methodWithNoArg);
@@ -254,7 +254,7 @@ TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted)
     SignalType signal2;
     SignalType signal3;
 
-    auto object = std::make_shared<Object1>();
+    auto object = sywu::make_shared<Object1>();
     auto connection1 = signal1.connect(object, &Object1::methodWithNoArg);
     auto connection2 = signal2.connect(object, &Object1::methodWithNoArg);
     auto connection3 = signal3.connect(object, &Object1::methodWithNoArg);
@@ -275,7 +275,7 @@ TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted_noConenctionHolding
     SignalType signal2;
     SignalType signal3;
 
-    auto object = std::make_shared<Object1>();
+    auto object = sywu::make_shared<Object1>();
     signal1.connect(object, &Object1::methodWithNoArg);
     signal2.connect(object, &Object1::methodWithNoArg);
     signal3.connect(object, &Object1::methodWithNoArg);
@@ -294,7 +294,7 @@ TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted_noConenctionHolding
 TEST_F(SignalTest, deleteEmitterSignalFromSlot)
 {
     using SignalType = sywu::Signal<void()>;
-    auto signal = std::make_unique<SignalType>();
+    auto signal = sywu::make_unique<SignalType>();
 
     auto killSignal = [&signal]()
     {
@@ -330,4 +330,36 @@ TEST_F(SignalTest, connectToFunctor)
     int value = 10;
     EXPECT_EQ(1, signal(value));
     EXPECT_EQ(100, value);
+}
+
+namespace
+{
+
+class Client : public NotifyDestroyed<Client>
+{
+public:
+    explicit Client() = default;
+};
+using ClientPtr = sywu::shared_ptr<Client>;
+
+class Server : public NotifyDestroyed<Server>
+{
+public:
+    ClientPtr client;
+    bool isClientDestroyed = false;
+
+    explicit Server(ClientPtr client)
+        : client(client)
+    {
+        client->destroyed.connect([this]() { isClientDestroyed = true; });
+        destroyed.connect([this]() { this->client.reset(); });
+    }
+};
+
+}
+
+TEST_F(SignalTest, pairNotifyDestruction)
+{
+    auto server = sywu::make_shared<Server>(sywu::make_shared<Client>());
+    server.reset();
 }

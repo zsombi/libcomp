@@ -2,6 +2,7 @@
 #define TEST_BASE_HPP
 
 #include <gtest/gtest.h>
+#include <sywu/signal.hpp>
 
 class SignalTest : public ::testing::Test
 {
@@ -38,6 +39,19 @@ public:
     static inline std::string stringValue;
     static inline size_t functionCallCount = 0u;
     static inline size_t intValue = 0u;
+};
+
+template <class DerivedClass>
+class NotifyDestroyed : public sywu::enable_shared_from_this<DerivedClass>
+{
+public:
+    sywu::Signal<void()> destroyed;
+
+    explicit NotifyDestroyed() = default;
+    ~NotifyDestroyed()
+    {
+        destroyed();
+    }
 };
 
 #endif // TEST_BASE_HPP

@@ -70,4 +70,11 @@
 #endif
 #define SYWU_TEMPLATE_API
 
+#ifdef DEBUG
+#include <cassert>
+#define SYWU_ASSERT(test)    if (!(test)) abort()
+#else
+#define SYWU_ASSERT(test)    (void)(test)
+#endif
+
 #endif // SYWU_CONFIG_HPP

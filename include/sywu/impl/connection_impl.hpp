@@ -2,7 +2,6 @@
 #define SYWU_CONNECTION_IMPL_HPP
 
 #include <sywu/connection.hpp>
-#include <sywu/type_traits.hpp>
 
 namespace sywu
 {
@@ -23,17 +22,17 @@ namespace
 {
 
 template <typename T>
-constexpr bool is_trackable_class_v = std::is_base_of_v<Trackable, traits::remove_cvref_t<T>>;
+constexpr bool is_trackable_class_v = is_base_of_v<Trackable, remove_cvref_t<T>>;
 
 template <typename T>
-constexpr bool is_trackable_pointer_v = std::is_pointer_v<T> && is_trackable_class_v<std::remove_pointer_t<T>>;
+constexpr bool is_trackable_pointer_v = is_pointer_v<T> && is_trackable_class_v<remove_pointer_t<T>>;
 
 template <typename T>
 constexpr bool is_valid_trackable_arg = (
             is_trackable_class_v<T> ||
             is_trackable_pointer_v<T> ||
-            traits::is_weak_ptr_v<T> ||
-            traits::is_shared_ptr_v<T>
+            is_weak_ptr_v<T> ||
+            is_shared_ptr_v<T>
             );
 
 struct TrackablePtrTracker : Tracker
@@ -83,9 +82,9 @@ struct TrackablePtrTracker : Tracker
 template <class Type>
 struct WeakPtrTracker : Tracker
 {
-    std::weak_ptr<Type> trackable;
-    std::shared_ptr<Type> locked;
-    explicit WeakPtrTracker(std::weak_ptr<Type> trackable)
+    weak_ptr<Type> trackable;
+    shared_ptr<Type> locked;
+    explicit WeakPtrTracker(weak_ptr<Type> trackable)
         : trackable(trackable)
     {
         attach = &WeakPtrTracker::_attach;
@@ -128,19 +127,19 @@ void Slot::bind(TrackableType trackable)
     TrackerPtr tracker;
     if constexpr (is_trackable_pointer_v<TrackableType>)
     {
-        tracker = std::make_unique<TrackablePtrTracker>(trackable);
+        tracker = make_unique<TrackablePtrTracker>(trackable);
     }
     else if constexpr (is_trackable_class_v<TrackableType>)
     {
-        tracker = std::make_unique<TrackablePtrTracker>(&trackable);
+        tracker = make_unique<TrackablePtrTracker>(&trackable);
     }
-    else if constexpr (traits::is_weak_ptr_v<TrackableType> || traits::is_shared_ptr_v<TrackableType>)
+    else if constexpr (is_weak_ptr_v<TrackableType> || is_shared_ptr_v<TrackableType>)
     {
-        using Type = typename std::pointer_traits<TrackableType>::element_type;
-        tracker = std::make_unique<WeakPtrTracker<Type>>(trackable);
+        using Type = typename pointer_traits<TrackableType>::element_type;
+        tracker = make_unique<WeakPtrTracker<Type>>(trackable);
     }
     tracker->attach(tracker.get(), shared_from_this());
-    m_trackers.push_back(std::move(tracker));
+    m_trackers.push_back(move(tracker));
 }
 
 
@@ -155,7 +154,7 @@ ReturnType SlotImpl<ReturnType, Arguments...>::activate(Arguments&&... args)
             : slot(slot)
             , trackers(trackers)
         {
-            auto it = utils::find_if(trackers, [](auto& tracker) { return !tracker->retain(tracker.get()); });
+            auto it = find_if(trackers, [](auto& tracker) { return !tracker->retain(tracker.get()); });
             SYWU_ASSERT(it == trackers.end());
         }
         ~TrackerLock()
@@ -183,7 +182,7 @@ ReturnType SlotImpl<ReturnType, Arguments...>::activate(Arguments&&... args)
     };
 
     TrackerLock lock(*this, m_trackers);
-    return activateOverride(std::forward<Arguments>(args)...);
+    return activateOverride(forward<Arguments>(args)...);
 }
 
 template <class... Trackables>
@@ -198,7 +197,7 @@ Connection& Connection::bind(Trackables... trackables)
     {
         slot->bind(trackable);
     };
-    utils::for_each_arg(binder, trackables...);
+    for_each_arg(binder, trackables...);
     return *this;
 }
 
