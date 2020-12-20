@@ -29,6 +29,10 @@ class SYWU_TEMPLATE_API FunctionSlot final : public SlotImpl<ReturnType, Argumen
 
     ReturnType activateOverride(Arguments&&... args) override
     {
+        if (!m_isValid)
+        {
+            throw Slot::BadSlot();
+        }
         return invoke(m_function, forward<Arguments>(args)...);
     }
 
@@ -59,7 +63,10 @@ class SYWU_TEMPLATE_API MethodSlot final : public SlotImpl<ReturnType, Arguments
     ReturnType activateOverride(Arguments&&... arguments) override
     {
         auto slotHost = m_target.lock();
-        SYWU_ASSERT(slotHost);
+        if (!slotHost)
+        {
+            throw Slot::BadSlot();
+        }
         return invoke(m_function, slotHost, forward<Arguments>(arguments)...);
     }
 
@@ -91,6 +98,11 @@ class SYWU_TEMPLATE_API SignalSlot final : public SlotImpl<ReturnType, Arguments
 
     ReturnType activateOverride(Arguments&&... arguments) override
     {
+        if (!m_receiver)
+        {
+            throw Slot::BadSlot();
+        }
+
         if constexpr (is_void_v<ReturnType>)
         {
             invoke(*m_receiver, forward<Arguments>(arguments)...);
@@ -155,30 +167,33 @@ size_t SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::operator()(Arg
         else
         {
             lock_guard lock(*slot);
-            if (!slot->isValid())
+            struct ConnectionSwapper
             {
-                relock_guard relock(*slot);
-                disconnect(Connection(*this, slot));
-            }
-            else if (slot->isEnabled())
-            {
-                struct ConnectionSwapper
+                Connection previousConnection;
+                explicit ConnectionSwapper(Connection connection)
+                    : previousConnection(SignalConcept::currentConnection)
                 {
-                    Connection previousConnection;
-                    explicit ConnectionSwapper(Connection connection)
-                        : previousConnection(SignalConcept::currentConnection)
-                    {
-                        SignalConcept::currentConnection = move(connection);
-                    }
-                    ~ConnectionSwapper()
-                    {
-                        SignalConcept::currentConnection = previousConnection;
-                    }
-                };
-                ConnectionSwapper backupConnection(Connection(*this, slot));
-                relock_guard relock(*slot);
+                    SignalConcept::currentConnection = move(connection);
+                }
+                ~ConnectionSwapper()
+                {
+                    SignalConcept::currentConnection = previousConnection;
+                }
+            };
+            ConnectionSwapper backupConnection(Connection(*this, slot));
+            relock_guard relock(*slot);
+            try
+            {
                 slot->activate(forward<Arguments>(arguments)...);
                 ++count;
+            }
+            catch(const Slot::BadSlot& e)
+            {
+                disconnect(Connection(*this, slot));
+            }
+            catch (const bad_weak_ptr& e)
+            {
+                SYWU_ASSERT(false);
             }
         }
     }

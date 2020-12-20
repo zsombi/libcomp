@@ -8,6 +8,8 @@
 #include <sywu/wrap/utility.hpp>
 #include <sywu/wrap/type_traits.hpp>
 
+#include <exception>
+
 namespace sywu
 {
 
@@ -27,21 +29,14 @@ class SYWU_API Slot : public Lockable, public enable_shared_from_this<Slot>
     SYWU_DISABLE_COPY_OR_MOVE(Slot);
 
 public:
+    class SYWU_API BadSlot : public std::exception
+    {
+    public:
+        BadSlot() noexcept = default;
+        BadSlot(const BadSlot&) noexcept = default;
+    };
     /// Destructor.
     virtual ~Slot() = default;
-
-    /// Returns the enabled state of a slot.
-    /// \return If the slot is enabled, returns \e true, otherwise returns \e false.
-    bool isEnabled() const
-    {
-        return m_isEnabled.load();
-    }
-    /// Sets the enabled state of a slot.
-    /// \param enable The enabled state to set for the slot.
-    void setEnabled(bool enable)
-    {
-        m_isEnabled.store(enable);
-    }
 
     /// Checks the validity of a slot.
     /// \return If the slot is valid, returns \e true, otherwise returns \e false.
@@ -95,8 +90,6 @@ protected:
 
     /// The binded trackers.
     TrackersContainer m_trackers;
-    /// The enabled state of the slot.
-    atomic_bool m_isEnabled = true;
 };
 
 ///The SlotImpl declares the activation of a slot.

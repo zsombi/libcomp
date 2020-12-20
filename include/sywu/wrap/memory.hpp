@@ -18,6 +18,8 @@ using std::enable_shared_from_this;
 using std::dynamic_pointer_cast;
 using std::static_pointer_cast;
 
+using std::bad_weak_ptr;
+
 
 /// std::make_shared initiates lots of control templates, creates loads of control blocks and deleters,
 /// which all increase the code size. This template offers smaller code size.

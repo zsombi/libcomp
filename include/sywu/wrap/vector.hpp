@@ -1,6 +1,8 @@
 #ifndef SYWU_VECTOR_HPP
 #define SYWU_VECTOR_HPP
 
+#include <sywu/wrap/algorythm.hpp>
+
 namespace sywu
 {
 

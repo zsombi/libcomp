@@ -120,7 +120,8 @@ public:
 
 template <class SignalHost, typename ReturnType, typename... Arguments>
 class MemberSignal;
-/// Use this template to create a member signal on a class that derives from enable_shared_from_this<>.
+/// Use this template to create a member signal on a class that derives from enable_shared_from_this<>. If you intend to
+/// emit the signal from the destructor of that class, use Signal<>.
 /// \tparam SignalHost The class on which the member signal is defined.
 /// \tparam Arguments The arguments of the signal, which is the signature of the signal.
 template <class SignalHost, typename ReturnType, typename... Arguments>

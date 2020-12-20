@@ -9,6 +9,8 @@ namespace sywu
 using std::for_each;
 using std::find;
 using std::find_if;
+using std::remove;
+using std::remove_if;
 
 template <class Function, class... Arguments>
 void for_each_arg(Function f, Arguments&&... args)

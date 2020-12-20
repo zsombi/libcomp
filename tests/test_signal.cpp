@@ -294,6 +294,7 @@ TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted_noConenctionHolding
 // The connections following the slot that destroys the signal are not processed.
 TEST_F(SignalTest, deleteEmitterSignalFromSlot)
 {
+    GTEST_SKIP();
     using SignalType = sywu::Signal<void()>;
     auto signal = sywu::make_unique<SignalType>();
 
