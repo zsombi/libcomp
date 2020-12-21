@@ -21,9 +21,10 @@ using SlotWeakPtr = weak_ptr<Slot>;
 
 /// The SignalConcept defines the concept of the signals. Defined as a lockable for convenience, holds the
 /// connections of the signal.
-class SYWU_API SignalConcept
+class SYWU_API SignalConcept : public Lockable
 {
     SYWU_DISABLE_COPY_OR_MOVE(SignalConcept);
+    friend class Connection;
 
 public:
     /// Returns the blocked state of a signal.
@@ -43,6 +44,9 @@ public:
 protected:
     /// Hidden default constructor.
     explicit SignalConcept() = default;
+
+    using SlotContainer = vector<SlotPtr>;
+    SlotContainer m_slots;
 
 private:
     atomic_bool m_isBlocked = false;
@@ -273,6 +277,11 @@ private:
     vector<SlotPtr> m_slots;
     atomic_int m_refCount = 0;
 };
+
+/********************************************************************************
+ *
+ */
+
 
 } // namespace sywu
 

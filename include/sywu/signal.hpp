@@ -18,7 +18,7 @@ namespace sywu
 
 /// Signal concept implementation.
 template <class DerivedClass, typename ReturnType, typename... Arguments>
-class SYWU_TEMPLATE_API SignalConceptImpl : public Lockable, public SignalConcept
+class SYWU_TEMPLATE_API SignalConceptImpl : public SignalConcept
 {
     DerivedClass* getSelf()
     {
@@ -71,8 +71,6 @@ protected:
     explicit SignalConceptImpl() = default;
 
     /// The container of the connections.
-    using SlotContainer = vector<SlotTypePtr>;
-    SlotContainer m_slots;
     FlagGuard m_emitGuard;
 };
 

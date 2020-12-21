@@ -177,7 +177,7 @@ size_t SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::operator()(Arg
                 };
                 ConnectionSwapper backupConnection(Connection(*this, slot));
                 relock_guard relock(*slot);
-                slot->activate(forward<Arguments>(arguments)...);
+                static_pointer_cast<SlotType>(slot)->activate(forward<Arguments>(arguments)...);
                 ++count;
             }
         }
