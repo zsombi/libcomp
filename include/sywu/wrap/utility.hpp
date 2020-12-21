@@ -9,7 +9,6 @@ namespace sywu
 using std::forward;
 using std::move;
 using std::exchange;
-using std::declval;
 
 } // namespace sywu
 

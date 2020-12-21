@@ -1,10 +1,21 @@
 #include "test_base.hpp"
 #include <sywu/impl/signal_impl.hpp>
 
-class T1 : public sywu::Trackable
+namespace
+{
+
+template <class T>
+struct Deleter
+{
+    void operator()(T*)
+    {
+    }
+};
+
+class Trackable : public sywu::Trackable
 {
 public:
-    explicit T1() = default;
+    explicit Trackable() = default;
 };
 
 class Object : public sywu::enable_shared_from_this<Object>
@@ -13,6 +24,7 @@ public:
     explicit Object() = default;
 };
 
+}
 
 class TrackableTest : public SignalTest
 {
@@ -26,7 +38,7 @@ TEST_F(TrackableTest, connectToTrackable)
 {
     using SignalType = sywu::Signal<void()>;
     SignalType signal;
-    auto destination = sywu::make_unique<T1>();
+    auto destination = sywu::make_unique<Trackable>();
 
     auto connection = signal.connect([](){});
     connection.bind(destination.get());
@@ -59,7 +71,7 @@ TEST_F(TrackableTest, connectToTrackableAndWeakPointer)
     using SignalType = sywu::Signal<void()>;
     SignalType signal;
     auto t1 = sywu::make_shared<Object>();
-    auto t2 = sywu::make_unique<T1>();
+    auto t2 = sywu::make_unique<Trackable>();
 
     auto connection = signal.connect([](){});
     connection.bind(t1, t2.get());
@@ -76,7 +88,7 @@ TEST_F(TrackableTest, bindTrackerToMultipleSignals)
 
     VoidSignalType voidSignal;
     IntSignalType intSignal;
-    auto trackable = sywu::make_unique<T1>();
+    auto trackable = sywu::make_unique<Trackable>();
 
     auto connection1 = voidSignal.connect([](){}).bind(trackable.get());
     auto connection2 = intSignal.connect([](){ return 0; }).bind(trackable.get());
@@ -93,7 +105,7 @@ TEST_F(TrackableTest, deleteTrackableInSlotDisconnects)
 {
     using SignalType = sywu::Signal<void()>;
     SignalType signal;
-    auto trackable = sywu::make_unique<T1>();
+    auto trackable = sywu::make_unique<Trackable>();
 
     auto deleter = [&trackable]()
     {
@@ -140,7 +152,7 @@ TEST_F(TrackableTest, deleteOneTrackableInSlotDisconnects)
     using SignalType = sywu::Signal<void()>;
     SignalType signal;
     auto trackable1 = sywu::make_shared<Object>();
-    auto trackable2 = sywu::make_unique<T1>();
+    auto trackable2 = sywu::make_unique<Trackable>();
 
     auto deleter = [&trackable1]()
     {

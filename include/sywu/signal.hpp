@@ -11,6 +11,7 @@
 #include <sywu/connection.hpp>
 #include <sywu/wrap/mutex.hpp>
 #include <sywu/wrap/type_traits.hpp>
+#include <sywu/wrap/function_traits.hpp>
 
 namespace sywu
 {

@@ -335,31 +335,59 @@ TEST_F(SignalTest, connectToFunctor)
 namespace
 {
 
-class Client : public NotifyDestroyed<Client>
+class Base;
+using BasePtr = sywu::shared_ptr<Base>;
+using BaseWeakPtr = sywu::weak_ptr<Base>;
+
+class Base : public NotifyDestroyed<Base>
+{
+public:
+    BaseWeakPtr m_pair;
+    explicit Base() = default;
+
+    void setPair(BasePtr pair)
+    {
+        m_pair = pair;
+        pair->destroyed.connect(shared_from_this(), &Base::onPairDestroyed);
+    }
+
+    void onPairDestroyed()
+    {
+        m_pair.reset();
+    }
+};
+
+class Client : public Base
 {
 public:
     explicit Client() = default;
 };
-using ClientPtr = sywu::shared_ptr<Client>;
 
-class Server : public NotifyDestroyed<Server>
+class Server : public Base
 {
 public:
-    ClientPtr client;
-    bool isClientDestroyed = false;
-
-    explicit Server(ClientPtr client)
-        : client(client)
-    {
-        client->destroyed.connect([this]() { isClientDestroyed = true; });
-        destroyed.connect([this]() { this->client.reset(); });
-    }
+    sywu::MemberSignal<Server, void()> closed{*this};
+    explicit Server() = default;
 };
 
 }
 
 TEST_F(SignalTest, pairNotifyDestruction)
 {
-    auto server = sywu::make_shared<Server>(sywu::make_shared<Client>());
-    server.reset();
+    auto server = sywu::make_shared<Base, Server>();
+    auto client = sywu::make_shared<Base, Client>();
+    EXPECT_EQ(1, server.use_count());
+    EXPECT_EQ(0, server->m_pair.use_count());
+
+    server->setPair(client);
+    EXPECT_EQ(1, server.use_count());
+    EXPECT_EQ(1, server->m_pair.use_count());
+
+    client->setPair(server);
+    EXPECT_EQ(1, server.use_count());
+    EXPECT_EQ(1, server->m_pair.use_count());
+
+    client.reset();
+    EXPECT_EQ(1, server.use_count());
+    EXPECT_EQ(0, server->m_pair.use_count());
 }

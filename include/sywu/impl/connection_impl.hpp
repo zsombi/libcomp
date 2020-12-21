@@ -22,7 +22,7 @@ namespace
 {
 
 template <typename T>
-constexpr bool is_trackable_class_v = is_base_of_v<Trackable, remove_cvref_t<T>>;
+constexpr bool is_trackable_class_v = is_base_of_v<Trackable, decay_t<T>>;
 
 template <typename T>
 constexpr bool is_trackable_pointer_v = is_pointer_v<T> && is_trackable_class_v<remove_pointer_t<T>>;
