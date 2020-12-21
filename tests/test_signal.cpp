@@ -121,7 +121,7 @@ TEST_F(SignalTest, disconnectWithConnection)
     sywu::Signal<void()> signal;
     auto slot = []()
     {
-        sywu::SignalConcept::currentConnection.disconnect();
+        sywu::ConnectionHelper::currentConnection.disconnect();
     };
     auto connection = signal.connect(slot);
     EXPECT_TRUE(connection);
@@ -137,7 +137,7 @@ TEST_F(SignalTest, disconnectWithSignal)
     SignalType signal;
     auto slot = []()
     {
-        sywu::SignalConcept::currentConnection.getSender<SignalType>()->disconnect(sywu::SignalConcept::currentConnection);
+        sywu::ConnectionHelper::currentConnection.getSender<SignalType>()->disconnect(sywu::ConnectionHelper::currentConnection);
     };
     auto connection = signal.connect(slot);
     EXPECT_TRUE(connection);
@@ -190,7 +190,7 @@ TEST_F(SignalTest, connectToTheInvokingSignal)
 
     auto slot = []()
     {
-        sywu::SignalConcept::currentConnection.getSender<SignalType>()->connect(&function);
+        sywu::ConnectionHelper::currentConnection.getSender<SignalType>()->connect(&function);
     };
     signal.connect(slot);
     EXPECT_EQ(1, signal());
@@ -219,7 +219,7 @@ TEST_F(SignalTest, blockSignalFromSlot)
     using SignalType = sywu::Signal<void()>;
     SignalType signal;
     signal.connect([](){});
-    signal.connect([](){ sywu::SignalConcept::currentConnection.getSender()->setBlocked(true); });
+    signal.connect([](){ sywu::ConnectionHelper::currentConnection.getSender()->setBlocked(true); });
     signal.connect([](){});
 
     EXPECT_EQ(2, signal());
@@ -235,7 +235,7 @@ TEST_F(SignalTest, connectionFromSlotGetsActivatedNextTime)
 
     auto slot = []()
     {
-        sywu::SignalConcept::currentConnection.getSender<SignalType>()->connect(&function);
+        sywu::ConnectionHelper::currentConnection.getSender<SignalType>()->connect(&function);
     };
     signal.connect(slot);
     EXPECT_EQ(1, signal());

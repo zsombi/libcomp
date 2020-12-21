@@ -19,6 +19,35 @@ class Slot;
 using SlotPtr = shared_ptr<Slot>;
 using SlotWeakPtr = weak_ptr<Slot>;
 
+/// The SignalConcept defines the concept of the signals. Defined as a lockable for convenience, holds the
+/// connections of the signal.
+class SYWU_API SignalConcept
+{
+    SYWU_DISABLE_COPY_OR_MOVE(SignalConcept);
+
+public:
+    /// Returns the blocked state of a signal.
+    /// \return The blocked state of a signal. When a signal is blocked, the signal emission does nothing.
+    bool isBlocked() const
+    {
+        return m_isBlocked.load();
+    }
+
+    /// Sets the \a blocked state of a signal.
+    /// \param blocked The new blocked state of a signal.
+    void setBlocked(bool blocked)
+    {
+        m_isBlocked = blocked;
+    }
+
+protected:
+    /// Hidden default constructor.
+    explicit SignalConcept() = default;
+
+private:
+    atomic_bool m_isBlocked = false;
+};
+
 /// The Slot holds the invocable connected to a signal. The slot hosts a function, a function object, a method
 /// or an other signal.
 class SYWU_API Slot : public Lockable, public enable_shared_from_this<Slot>
@@ -98,7 +127,7 @@ protected:
 
 /// The Connection holds a slot connected to a signal. It is a token to a sender signal and a receiver
 /// slot connected to that signal.
-class SYWU_TEMPLATE_API Connection
+class SYWU_API Connection
 {
     template <typename, typename, typename...>
     friend class SignalConceptImpl;
@@ -165,6 +194,13 @@ protected:
 
     SignalConcept* m_sender = nullptr;
     SlotWeakPtr m_slot;
+};
+
+struct ConnectionHelper
+{
+    /// The current connection. Use this member to access the connection that holds the connected
+    /// slot that is activated by the signal.
+    static inline Connection currentConnection;
 };
 
 /// To track the lifetime of a connection based on an arbitrary object that is not a smart pointer, use this class.

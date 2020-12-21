@@ -8,46 +8,13 @@
 #include <vector>
 
 #include <sywu/config.hpp>
-#include <sywu/connection.hpp>
+#include <sywu/concept/signal.hpp>
 #include <sywu/wrap/mutex.hpp>
 #include <sywu/wrap/type_traits.hpp>
 #include <sywu/wrap/function_traits.hpp>
 
 namespace sywu
 {
-
-/// The SignalConcept defines the concept of the signals. Defined as a lockable for convenience, holds the
-/// connections of the signal.
-class SYWU_API SignalConcept
-{
-    SYWU_DISABLE_COPY_OR_MOVE(SignalConcept);
-
-public:
-    /// The current connection. Use this member to access the connection that holds the connected
-    /// slot that is activated by the signal.
-    static inline Connection currentConnection;
-
-    /// Returns the blocked state of a signal.
-    /// \return The blocked state of a signal. When a signal is blocked, the signal emission does nothing.
-    bool isBlocked() const
-    {
-        return m_isBlocked.load();
-    }
-
-    /// Sets the \a blocked state of a signal.
-    /// \param blocked The new blocked state of a signal.
-    void setBlocked(bool blocked)
-    {
-        m_isBlocked = blocked;
-    }
-
-protected:
-    /// Hidden default constructor.
-    explicit SignalConcept() = default;
-
-private:
-    atomic_bool m_isBlocked = false;
-};
 
 /// Signal concept implementation.
 template <class DerivedClass, typename ReturnType, typename... Arguments>

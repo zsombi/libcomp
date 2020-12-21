@@ -12,13 +12,13 @@ set(HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/sywu/wrap/utility.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/sywu/wrap/vector.hpp
 
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/sywu/concept/signal.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/sywu/config.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/sywu/connection.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/sywu/signal.hpp
     )
 
 set(PRIVATE_HEADERS
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/sywu/impl/connection_impl.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/sywu/concept/connection_impl.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/sywu/impl/signal_impl.hpp
     )
 

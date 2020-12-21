@@ -1,7 +1,7 @@
 #ifndef SYWU_CONNECTION_IMPL_HPP
 #define SYWU_CONNECTION_IMPL_HPP
 
-#include <sywu/connection.hpp>
+#include <sywu/concept/signal.hpp>
 
 namespace sywu
 {

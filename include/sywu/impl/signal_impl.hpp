@@ -6,7 +6,7 @@
 #include <sywu/wrap/functional.hpp>
 #include <sywu/signal.hpp>
 #include <sywu/wrap/vector.hpp>
-#include <sywu/impl/connection_impl.hpp>
+#include <sywu/concept/connection_impl.hpp>
 
 namespace sywu
 {
@@ -166,13 +166,13 @@ size_t SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::operator()(Arg
                 {
                     Connection previousConnection;
                     explicit ConnectionSwapper(Connection connection)
-                        : previousConnection(SignalConcept::currentConnection)
+                        : previousConnection(ConnectionHelper::currentConnection)
                     {
-                        SignalConcept::currentConnection = move(connection);
+                        ConnectionHelper::currentConnection = move(connection);
                     }
                     ~ConnectionSwapper()
                     {
-                        SignalConcept::currentConnection = previousConnection;
+                        ConnectionHelper::currentConnection = previousConnection;
                     }
                 };
                 ConnectionSwapper backupConnection(Connection(*this, slot));
