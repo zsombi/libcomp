@@ -72,7 +72,7 @@ public:
 
     /// Adds a \a slot to the signal.
     /// \param slot The slot to add to the signal.
-    /// \return The connection token with teh signal and the slot.
+    /// \return The connection token with the signal and the slot.
     Connection addSlot(SlotPtr slot);
 
     /// Connects a \a method of a \a receiver to this signal.
