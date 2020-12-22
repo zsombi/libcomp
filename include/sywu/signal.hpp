@@ -29,9 +29,6 @@ public:
     using SlotType = SlotImpl<ReturnType, Arguments...>;
     using SlotTypePtr = shared_ptr<SlotType>;
 
-    /// Destructor.
-    ~SignalConceptImpl();
-
     /// Activates the signal with the given arguments.
     /// \param arguments... The variadic arguments passed.
     /// \return The number of connections invoked.

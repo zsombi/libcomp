@@ -41,6 +41,10 @@ public:
     /// \return If the slot is active, returns \e true, otherwise returns \e false.
     bool isActive() const
     {
+        if (!m_sender)
+        {
+            return false;
+        }
         auto release = [](auto& tracker) { tracker->release(tracker.get()); };
         auto it = find_if(m_trackers, [](auto& tracker) { return !tracker->retain(tracker.get()); });
         if (it != m_trackers.end())
@@ -185,6 +189,19 @@ class SYWU_API SignalConcept : public Lockable
     friend class Connection;
 
 public:
+    /// Destructor.
+    ~SignalConcept()
+    {
+        lock_guard lock(*this);
+
+        while (!m_slots.empty())
+        {
+            auto slot = m_slots.back();
+            m_slots.pop_back();
+            slot->deactivate();
+        }
+    }
+
     /// Returns the blocked state of a signal.
     /// \return The blocked state of a signal. When a signal is blocked, the signal emission does nothing.
     bool isBlocked() const

@@ -123,19 +123,6 @@ private:
 } // namespace noname
 
 template <class DerivedClass, typename ReturnType, typename... Arguments>
-SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::~SignalConceptImpl()
-{
-    lock_guard lock(*this);
-
-    while (!m_slots.empty())
-    {
-        auto slot = m_slots.back();
-        m_slots.pop_back();
-        slot->deactivate();
-    }
-}
-
-template <class DerivedClass, typename ReturnType, typename... Arguments>
 size_t SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::operator()(Arguments... arguments)
 {
     if (isBlocked() || m_emitGuard.isLocked())
@@ -154,39 +141,31 @@ size_t SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::operator()(Arg
     auto count = int(0);
     for (auto& slot : slots)
     {
-        // The signal may get blocked within a connection, so bail out if that happens.
-        if (isBlocked())
+        lock_guard lock(*slot);
+        if (!slot->isActive())
         {
-            return count;
+            relock_guard relock(*slot);
+            disconnect(Connection(slot));
         }
         else
         {
-            lock_guard lock(*slot);
-            if (!slot->isActive())
+            struct ConnectionSwapper
             {
-                relock_guard relock(*slot);
-                disconnect(Connection(slot));
-            }
-            else
-            {
-                struct ConnectionSwapper
+                Connection previousConnection;
+                explicit ConnectionSwapper(Connection connection)
+                    : previousConnection(ActiveConnection::connection)
                 {
-                    Connection previousConnection;
-                    explicit ConnectionSwapper(Connection connection)
-                        : previousConnection(ActiveConnection::connection)
-                    {
-                        ActiveConnection::connection = move(connection);
-                    }
-                    ~ConnectionSwapper()
-                    {
-                        ActiveConnection::connection = previousConnection;
-                    }
-                };
-                ConnectionSwapper backupConnection({slot});
-                relock_guard relock(*slot);
-                static_pointer_cast<SlotType>(slot)->activate(forward<Arguments>(arguments)...);
-                ++count;
-            }
+                    ActiveConnection::connection = move(connection);
+                }
+                ~ConnectionSwapper()
+                {
+                    ActiveConnection::connection = previousConnection;
+                }
+            };
+            ConnectionSwapper backupConnection({slot});
+            relock_guard relock(*slot);
+            static_pointer_cast<SlotType>(slot)->activate(forward<Arguments>(arguments)...);
+            ++count;
         }
     }
 

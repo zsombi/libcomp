@@ -198,7 +198,8 @@ TEST_F(SignalTest, blockSignal)
     EXPECT_EQ(3, signal());
 }
 
-// The application developer can block the signal from a slot.
+// The application developer can block the signal from a slot. Blocking the signal from the slot does not affect the
+// active emit loop of the signal.
 TEST_F(SignalTest, blockSignalFromSlot)
 {
     using SignalType = sywu::Signal<void()>;
@@ -207,7 +208,7 @@ TEST_F(SignalTest, blockSignalFromSlot)
     signal.connect([](){ sywu::ActiveConnection::connection.getSender()->setBlocked(true); });
     signal.connect([](){});
 
-    EXPECT_EQ(2, signal());
+    EXPECT_EQ(3, signal());
     EXPECT_EQ(0, signal());
 }
 
