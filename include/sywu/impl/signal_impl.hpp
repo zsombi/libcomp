@@ -241,19 +241,6 @@ Connection SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::connect(Si
     return addSlot(slot);
 }
 
-template <class DerivedClass, typename ReturnType, typename... Arguments>
-void SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::disconnect(Connection connection)
-{
-    lock_guard guard(*this);
-    auto slot = connection.m_slot.lock();
-    if (!slot)
-    {
-        return;
-    }
-    connection.disconnect();
-    erase(m_slots, slot);
-}
-
 /******************************************************************************
  * MemberSignal
  */

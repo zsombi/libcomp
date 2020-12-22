@@ -63,10 +63,6 @@ public:
     template <class RDerivedClass, typename RReturnType, class... RArguments>
     Connection connect(SignalConceptImpl<RDerivedClass, RReturnType, RArguments...>& receiver);
 
-    /// Disconnects the \a connection passed as argument.
-    /// \param connection The connection to disconnect. The connection is invalidated and removed from the signal.
-    void disconnect(Connection connection);
-
 protected:
     explicit SignalConceptImpl() = default;
 
