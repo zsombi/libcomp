@@ -120,6 +120,20 @@ private:
     ReceiverSignal* m_receiver = nullptr;
 };
 
+struct ConnectionSwapper
+{
+    Connection previousConnection;
+    explicit ConnectionSwapper(Connection connection)
+        : previousConnection(ActiveConnection::connection)
+    {
+        ActiveConnection::connection = move(connection);
+    }
+    ~ConnectionSwapper()
+    {
+        ActiveConnection::connection = previousConnection;
+    }
+};
+
 } // namespace noname
 
 template <class DerivedClass, typename ReturnType, typename... Arguments>
@@ -149,20 +163,7 @@ size_t SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::operator()(Arg
         }
         else
         {
-            struct ConnectionSwapper
-            {
-                Connection previousConnection;
-                explicit ConnectionSwapper(Connection connection)
-                    : previousConnection(ActiveConnection::connection)
-                {
-                    ActiveConnection::connection = move(connection);
-                }
-                ~ConnectionSwapper()
-                {
-                    ActiveConnection::connection = previousConnection;
-                }
-            };
-            ConnectionSwapper backupConnection({slot});
+            ConnectionSwapper backupConnection({{slot}});
             relock_guard relock(*slot);
             static_pointer_cast<SlotType>(slot)->activate(forward<Arguments>(arguments)...);
             ++count;
