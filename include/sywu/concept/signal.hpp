@@ -45,17 +45,12 @@ public:
         {
             return false;
         }
-        auto release = [](auto& tracker) { tracker->release(tracker.get()); };
-        auto it = find_if(m_trackers, [](auto& tracker) { return !tracker->retain(tracker.get()); });
-        if (it != m_trackers.end())
+
+        Track<const Slot, false> track(*this);
+        if (!track.retainedInFull())
         {
-            // Release the retained ones
-            for_each(m_trackers.begin(), it, release);
             return false;
         }
-
-        // Release all, there is no weak_ptr locker that would disturb.
-        for_each(m_trackers, release);
         return isActiveOverride();
     }
 
@@ -63,13 +58,22 @@ public:
     void deactivate()
     {
         lock_guard lock(*this);
+        if (!m_sender)
+        {
+            // Already inactive.
+            return;
+        }
+
         auto detacher = [this](auto& tracker)
         {
             tracker->detach(tracker.get(), shared_from_this());
         };
         for_each(m_trackers, detacher);
         m_trackers.clear();
-        disconnectOverride();
+
+        deactivateOverride();
+
+        m_sender = nullptr;
     }
 
     /// Binds a trackable object to the slot. The trackable object is either a shared pointer, a weak pointer,
@@ -83,6 +87,16 @@ protected:
     /// The container with the binded trackers.
     using TrackersContainer = vector<TrackerPtr>;
 
+    template <class SlotType, bool DisconnectOnRelease = false>
+    struct Track
+    {
+        SlotType& m_slot;
+        TrackersContainer::const_iterator m_lastLocked;
+        Track(SlotType& slot);
+        ~Track();
+        bool retainedInFull() const;
+    };
+
     /// Constructor.
     explicit Slot(SignalConcept& sender)
         : m_sender(&sender)
@@ -90,9 +104,12 @@ protected:
     }
 
     /// To implement slot specific validation, override this method.
-    virtual bool isActiveOverride() const = 0;
+    virtual bool isActiveOverride() const
+    {
+        return true;
+    }
     /// To implement slot specific disconnect, override this method.
-    virtual void disconnectOverride() = 0;
+    virtual void deactivateOverride() = 0;
 
     /// The sender signal to which the slot is connected.
     SignalConcept* m_sender = nullptr;
@@ -305,7 +322,11 @@ protected:
         {
             auto slot = m_slots.back();
             m_slots.pop_back();
-            slot->getSignal()->disconnect({slot});
+            auto signal = slot->getSignal();
+            if (signal)
+            {
+                signal->disconnect({slot});
+            }
         }
     }
 

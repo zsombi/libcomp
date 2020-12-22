@@ -274,6 +274,17 @@ TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted_noConenctionHolding
     EXPECT_EQ(0, signal2());
     EXPECT_EQ(0, signal3());
 }
+TEST_F(SignalTest, receiverObjectDeleted)
+{
+    using SignalType = sywu::Signal<void()>;
+    SignalType signal;
+    auto object = sywu::make_shared<Object1>();
+    signal.connect(object, &Object1::methodWithNoArg);
+
+    EXPECT_EQ(1, signal());
+    object.reset();
+    EXPECT_EQ(0, signal());
+}
 
 // When the signal is destroyed in a slot connected to that signal, it invalidates the connections of the signal.
 // The connections following the slot that destroys the signal are not processed.

@@ -1,12 +1,13 @@
 #ifndef SYWU_SIGNAL_IMPL_HPP
 #define SYWU_SIGNAL_IMPL_HPP
 
-#include <sywu/wrap/memory.hpp>
-#include <sywu/wrap/utility.hpp>
-#include <sywu/wrap/functional.hpp>
-#include <sywu/signal.hpp>
-#include <sywu/wrap/vector.hpp>
 #include <sywu/concept/connection_impl.hpp>
+#include <sywu/signal.hpp>
+#include <sywu/wrap/memory.hpp>
+#include <sywu/wrap/exception.hpp>
+#include <sywu/wrap/functional.hpp>
+#include <sywu/wrap/utility.hpp>
+#include <sywu/wrap/vector.hpp>
 
 namespace sywu
 {
@@ -19,14 +20,8 @@ class SYWU_TEMPLATE_API FunctionSlot final : public SlotImpl<ReturnType, Argumen
 {
     using Base = SlotImpl<ReturnType, Arguments...>;
 
-    bool isActiveOverride() const override
+    void deactivateOverride() override
     {
-        return m_isValid.load();
-    }
-
-    void disconnectOverride() override
-    {
-        m_isValid.store(false);
     }
 
     ReturnType activateOverride(Arguments&&... args) override
@@ -43,7 +38,6 @@ public:
 
 private:
     FunctionType m_function;
-    atomic_bool m_isValid = true;
 };
 
 template <class TargetObject, typename ReturnType, typename... Arguments>
@@ -56,7 +50,7 @@ class SYWU_TEMPLATE_API MethodSlot final : public SlotImpl<ReturnType, Arguments
         return !m_target.expired();
     }
 
-    void disconnectOverride() override
+    void deactivateOverride() override
     {
         m_target.reset();
     }
@@ -64,7 +58,11 @@ class SYWU_TEMPLATE_API MethodSlot final : public SlotImpl<ReturnType, Arguments
     ReturnType activateOverride(Arguments&&... arguments) override
     {
         auto slotHost = m_target.lock();
-        SYWU_ASSERT(slotHost);
+        if (!slotHost)
+        {
+            throw bad_slot();
+        }
+
         return invoke(m_function, slotHost, forward<Arguments>(arguments)...);
     }
 
@@ -92,13 +90,18 @@ class SYWU_TEMPLATE_API SignalSlot final : public SlotImpl<ReturnType, Arguments
         return m_receiver != nullptr;
     }
 
-    void disconnectOverride() override
+    void deactivateOverride() override
     {
         m_receiver = nullptr;
     }
 
     ReturnType activateOverride(Arguments&&... arguments) override
     {
+        if (!m_receiver)
+        {
+            throw bad_slot();
+        }
+
         if constexpr (is_void_v<ReturnType>)
         {
             invoke(*m_receiver, forward<Arguments>(arguments)...);
@@ -156,17 +159,28 @@ size_t SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::operator()(Arg
     for (auto& slot : slots)
     {
         lock_guard lock(*slot);
-        if (!slot->isActive())
+
+        try
         {
-            relock_guard relock(*slot);
-            disconnect(Connection(slot));
-        }
-        else
-        {
+            if (!slot->getSignal())
+            {
+                // The slot is already disconnected from the signal, most likely due to the signal deletion.
+                continue;
+            }
             ConnectionSwapper backupConnection(slot);
             relock_guard relock(*slot);
             static_pointer_cast<SlotType>(slot)->activate(forward<Arguments>(arguments)...);
             ++count;
+        }
+        catch (const bad_weak_ptr&)
+        {
+            relock_guard relock(*slot);
+            disconnect(Connection(slot));
+        }
+        catch (const bad_slot&)
+        {
+            relock_guard relock(*slot);
+            disconnect(Connection(slot));
         }
     }
 

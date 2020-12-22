@@ -2,6 +2,7 @@
 #define SYWU_CONNECTION_IMPL_HPP
 
 #include <sywu/concept/signal.hpp>
+#include <sywu/wrap/exception.hpp>
 
 namespace sywu
 {
@@ -105,41 +106,84 @@ struct WeakPtrTracker : Tracker
     static bool _retain(Tracker* tracker)
     {
         auto self = static_cast<WeakPtrTracker*>(tracker);
-        self->locked = self->trackable.lock();
-        return self->locked != nullptr;
+        try
+        {
+            self->locked = self->trackable.lock();
+            return self->locked != nullptr;
+        }
+        catch (const bad_weak_ptr&)
+        {
+            return false;
+        }
     }
     static bool _release(Tracker* tracker)
     {
         auto self = static_cast<WeakPtrTracker*>(tracker);
         self->locked.reset();
-        return self->trackable.lock() == nullptr;
+        return self->trackable.use_count() == 0;
     }
 };
 
 } // noname
 
 
+template <class SlotType, bool DisconnectOnRelease>
+Slot::Track<SlotType, DisconnectOnRelease>::Track(SlotType& slot)
+    : m_slot(slot)
+{
+    m_lastLocked = find_if(m_slot.m_trackers, [](auto& tracker) { return !tracker->retain(tracker.get()); });
+}
+
+template <class SlotType, bool DisconnectOnRelease>
+Slot::Track<SlotType, DisconnectOnRelease>::~Track()
+{
+    auto dirty = false;
+    auto release = [&dirty](auto& tracker) { dirty = tracker->release(tracker.get()); return dirty; };
+    if constexpr (DisconnectOnRelease)
+    {
+        erase_if(m_slot.m_trackers, release);
+        if (dirty)
+        {
+            m_slot.deactivate();
+        }
+    }
+    else
+    {
+        for_each(m_slot.m_trackers.begin(), m_lastLocked, release);
+    }
+}
+
+template <class SlotType, bool DisconnectOnRelease>
+bool Slot::Track<SlotType, DisconnectOnRelease>::retainedInFull() const
+{
+    return m_lastLocked == m_slot.m_trackers.end();
+}
+
+
 template <typename TrackableType>
 void Slot::bind(TrackableType trackable)
 {
     static_assert (is_valid_trackable_arg<TrackableType>, "Invalid trackable");
-    SYWU_UNUSED(trackable);
-    TrackerPtr tracker;
+
     if constexpr (is_trackable_pointer_v<TrackableType>)
     {
-        tracker = make_unique<TrackablePtrTracker>(trackable);
+        auto tracker = make_unique<TrackablePtrTracker>(trackable);
+        tracker->attach(tracker.get(), shared_from_this());
+        m_trackers.push_back(move(tracker));
     }
     else if constexpr (is_trackable_class_v<TrackableType>)
     {
-        tracker = make_unique<TrackablePtrTracker>(&trackable);
+        auto tracker = make_unique<TrackablePtrTracker>(&trackable);
+        tracker->attach(tracker.get(), shared_from_this());
+        m_trackers.push_back(move(tracker));
     }
     else if constexpr (is_weak_ptr_v<TrackableType> || is_shared_ptr_v<TrackableType>)
     {
         using Type = typename pointer_traits<TrackableType>::element_type;
-        tracker = make_unique<WeakPtrTracker<Type>>(trackable);
+        auto tracker = make_unique<WeakPtrTracker<Type>>(trackable);
+        tracker->attach(tracker.get(), shared_from_this());
+        m_trackers.insert(m_trackers.begin(), move(tracker));
     }
-    tracker->attach(tracker.get(), shared_from_this());
-    m_trackers.push_back(move(tracker));
 }
 
 
@@ -152,43 +196,17 @@ SlotImpl<ReturnType, Arguments...>::SlotImpl(SignalConcept& sender)
 template <typename ReturnType, typename... Arguments>
 ReturnType SlotImpl<ReturnType, Arguments...>::activate(Arguments&&... args)
 {
-    struct TrackerLock
+    if (!m_sender)
     {
-        SlotImpl& slot;
-        TrackersContainer& trackers;
-        TrackerLock(SlotImpl& slot, TrackersContainer& trackers)
-            : slot(slot)
-            , trackers(trackers)
-        {
-            auto it = find_if(trackers, [](auto& tracker) { return !tracker->retain(tracker.get()); });
-            SYWU_ASSERT(it == trackers.end());
-        }
-        ~TrackerLock()
-        {
-            // TODO: try to make it nicer.
-            bool dirty = false;
-            for (auto it = trackers.begin(); it != trackers.end();)
-            {
-                auto& tracker = *it;
-                if (tracker->release(tracker.get()))
-                {
-                    dirty = true;
-                    it = trackers.erase(it);
-                }
-                else
-                {
-                    ++it;
-                }
-            }
+        throw bad_slot();
+    }
 
-            if (dirty)
-            {
-                slot.deactivate();
-            }
-        }
-    };
+    Track<Slot, true> retain(*this);
+    if (!retain.retainedInFull())
+    {
+        throw bad_slot();
+    }
 
-    TrackerLock lock(*this, m_trackers);
     return activateOverride(forward<Arguments>(args)...);
 }
 
