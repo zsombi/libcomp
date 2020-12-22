@@ -17,7 +17,9 @@ namespace
 template <typename FunctionType, typename ReturnType, typename... Arguments>
 class SYWU_TEMPLATE_API FunctionSlot final : public SlotImpl<ReturnType, Arguments...>
 {
-    bool isValidOverride() const override
+    using Base = SlotImpl<ReturnType, Arguments...>;
+
+    bool isActiveOverride() const override
     {
         return m_isValid.load();
     }
@@ -33,8 +35,9 @@ class SYWU_TEMPLATE_API FunctionSlot final : public SlotImpl<ReturnType, Argumen
     }
 
 public:
-    explicit FunctionSlot(const FunctionType& function)
-        : m_function(function)
+    explicit FunctionSlot(SignalConcept& sender, const FunctionType& function)
+        : Base(sender)
+        , m_function(function)
     {
     }
 
@@ -46,7 +49,9 @@ private:
 template <class TargetObject, typename ReturnType, typename... Arguments>
 class SYWU_TEMPLATE_API MethodSlot final : public SlotImpl<ReturnType, Arguments...>
 {
-    bool isValidOverride() const override
+    using Base = SlotImpl<ReturnType, Arguments...>;
+
+    bool isActiveOverride() const override
     {
         return !m_target.expired();
     }
@@ -65,8 +70,9 @@ class SYWU_TEMPLATE_API MethodSlot final : public SlotImpl<ReturnType, Arguments
 
 public:
     using FunctionType = ReturnType(TargetObject::*)(Arguments...);
-    explicit MethodSlot(shared_ptr<TargetObject> target, const FunctionType& function)
-        : m_target(target)
+    explicit MethodSlot(SignalConcept& sender, shared_ptr<TargetObject> target, const FunctionType& function)
+        : Base(sender)
+        , m_target(target)
         , m_function(function)
     {        
     }
@@ -79,7 +85,9 @@ private:
 template <typename ReceiverSignal, typename ReturnType, typename... Arguments>
 class SYWU_TEMPLATE_API SignalSlot final : public SlotImpl<ReturnType, Arguments...>
 {
-    bool isValidOverride() const override
+    using Base = SlotImpl<ReturnType, Arguments...>;
+
+    bool isActiveOverride() const override
     {
         return m_receiver != nullptr;
     }
@@ -102,8 +110,9 @@ class SYWU_TEMPLATE_API SignalSlot final : public SlotImpl<ReturnType, Arguments
     }
 
 public:
-    explicit SignalSlot(ReceiverSignal& receiver)
-        : m_receiver(&receiver)
+    explicit SignalSlot(SignalConcept& sender, ReceiverSignal& receiver)
+        : Base(sender)
+        , m_receiver(&receiver)
     {
     }
 
@@ -118,14 +127,12 @@ SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::~SignalConceptImpl()
 {
     lock_guard lock(*this);
 
-    auto invalidate = [](auto slot)
+    while (!m_slots.empty())
     {
-        if (slot && slot->isValid())
-        {
-            slot->disconnect();
-        }
-    };
-    for_each(m_slots, invalidate);
+        auto slot = m_slots.back();
+        m_slots.pop_back();
+        slot->deactivate();
+    }
 }
 
 template <class DerivedClass, typename ReturnType, typename... Arguments>
@@ -155,10 +162,10 @@ size_t SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::operator()(Arg
         else
         {
             lock_guard lock(*slot);
-            if (!slot->isValid())
+            if (!slot->isActive())
             {
                 relock_guard relock(*slot);
-                disconnect(Connection(*this, slot));
+                disconnect(Connection(slot));
             }
             else
             {
@@ -166,16 +173,16 @@ size_t SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::operator()(Arg
                 {
                     Connection previousConnection;
                     explicit ConnectionSwapper(Connection connection)
-                        : previousConnection(ConnectionHelper::currentConnection)
+                        : previousConnection(ActiveConnection::connection)
                     {
-                        ConnectionHelper::currentConnection = move(connection);
+                        ActiveConnection::connection = move(connection);
                     }
                     ~ConnectionSwapper()
                     {
-                        ConnectionHelper::currentConnection = previousConnection;
+                        ActiveConnection::connection = previousConnection;
                     }
                 };
-                ConnectionSwapper backupConnection(Connection(*this, slot));
+                ConnectionSwapper backupConnection({slot});
                 relock_guard relock(*slot);
                 static_pointer_cast<SlotType>(slot)->activate(forward<Arguments>(arguments)...);
                 ++count;
@@ -193,7 +200,7 @@ Connection SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::addSlot(Sl
     SYWU_ASSERT(slotActivator);
     lock_guard lock(*this);
     m_slots.push_back(slotActivator);
-    return Connection(*this, m_slots.back());
+    return Connection(m_slots.back());
 }
 
 template <class DerivedClass, typename ReturnType, typename... Arguments>
@@ -209,7 +216,7 @@ SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::connect(shared_ptr<ty
         is_same_v<ReturnType, SlotReturnType>,
         "Incompatible slot signature");
 
-    auto slot = make_shared<Slot, MethodSlot<Object, SlotReturnType, Arguments...>>(receiver, method);
+    auto slot = make_shared<Slot, MethodSlot<Object, SlotReturnType, Arguments...>>(*this, receiver, method);
     return addSlot(slot);
 }
 
@@ -224,7 +231,7 @@ SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::connect(const Functio
         is_same_v<ReturnType, SlotReturnType>,
         "Incompatible slot signature");
 
-    auto slot = make_shared<Slot, FunctionSlot<FunctionType, SlotReturnType, Arguments...>>(function);
+    auto slot = make_shared<Slot, FunctionSlot<FunctionType, SlotReturnType, Arguments...>>(*this, function);
     return addSlot(slot);
 }
 
@@ -237,7 +244,7 @@ Connection SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::connect(Si
         is_same_v<tuple<Arguments...>, tuple<RArguments...>>,
         "incompatible signal signature");
 
-    auto slot = make_shared<Slot, SignalSlot<ReceiverSignal, RReturnType, Arguments...>>(receiver);
+    auto slot = make_shared<Slot, SignalSlot<ReceiverSignal, RReturnType, Arguments...>>(*this, receiver);
     return addSlot(slot);
 }
 

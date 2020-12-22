@@ -115,29 +115,14 @@ TEST_F(SignalTest, emitSignalThatActivatedTheSlot)
     EXPECT_EQ(1u, signal());
 }
 
-// The application developer can disconnect a connection from a signal through its disconnect function.
-TEST_F(SignalTest, disconnectWithConnection)
-{
-    sywu::Signal<void()> signal;
-    auto slot = []()
-    {
-        sywu::ConnectionHelper::currentConnection.disconnect();
-    };
-    auto connection = signal.connect(slot);
-    EXPECT_TRUE(connection);
-    EXPECT_EQ(1u, signal());
-    EXPECT_FALSE(connection);
-    EXPECT_EQ(0u, signal());
-}
-
-// The application developer can disconnect a connection from a signal using the signal dicsonnect function.
+// The application developer can disconnect a connection from a signal using the signal disconnect function.
 TEST_F(SignalTest, disconnectWithSignal)
 {
     using SignalType = sywu::Signal<void()>;
     SignalType signal;
     auto slot = []()
     {
-        sywu::ConnectionHelper::currentConnection.getSender<SignalType>()->disconnect(sywu::ConnectionHelper::currentConnection);
+        sywu::ActiveConnection::connection.getSender<SignalType>()->disconnect(sywu::ActiveConnection::connection);
     };
     auto connection = signal.connect(slot);
     EXPECT_TRUE(connection);
@@ -190,7 +175,7 @@ TEST_F(SignalTest, connectToTheInvokingSignal)
 
     auto slot = []()
     {
-        sywu::ConnectionHelper::currentConnection.getSender<SignalType>()->connect(&function);
+        sywu::ActiveConnection::connection.getSender<SignalType>()->connect(&function);
     };
     signal.connect(slot);
     EXPECT_EQ(1, signal());
@@ -219,7 +204,7 @@ TEST_F(SignalTest, blockSignalFromSlot)
     using SignalType = sywu::Signal<void()>;
     SignalType signal;
     signal.connect([](){});
-    signal.connect([](){ sywu::ConnectionHelper::currentConnection.getSender()->setBlocked(true); });
+    signal.connect([](){ sywu::ActiveConnection::connection.getSender()->setBlocked(true); });
     signal.connect([](){});
 
     EXPECT_EQ(2, signal());
@@ -235,7 +220,7 @@ TEST_F(SignalTest, connectionFromSlotGetsActivatedNextTime)
 
     auto slot = []()
     {
-        sywu::ConnectionHelper::currentConnection.getSender<SignalType>()->connect(&function);
+        sywu::ActiveConnection::connection.getSender<SignalType>()->connect(&function);
     };
     signal.connect(slot);
     EXPECT_EQ(1, signal());

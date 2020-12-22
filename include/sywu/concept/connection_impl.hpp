@@ -144,6 +144,12 @@ void Slot::bind(TrackableType trackable)
 
 
 template <typename ReturnType, typename... Arguments>
+SlotImpl<ReturnType, Arguments...>::SlotImpl(SignalConcept& sender)
+    : Slot(sender)
+{
+}
+
+template <typename ReturnType, typename... Arguments>
 ReturnType SlotImpl<ReturnType, Arguments...>::activate(Arguments&&... args)
 {
     struct TrackerLock
@@ -159,6 +165,7 @@ ReturnType SlotImpl<ReturnType, Arguments...>::activate(Arguments&&... args)
         }
         ~TrackerLock()
         {
+            // TODO: try to make it nicer.
             bool dirty = false;
             for (auto it = trackers.begin(); it != trackers.end();)
             {
@@ -176,7 +183,7 @@ ReturnType SlotImpl<ReturnType, Arguments...>::activate(Arguments&&... args)
 
             if (dirty)
             {
-                slot.disconnect();
+                slot.deactivate();
             }
         }
     };

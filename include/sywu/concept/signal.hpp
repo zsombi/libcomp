@@ -30,9 +30,16 @@ public:
     /// Destructor.
     virtual ~Slot() = default;
 
-    /// Checks the validity of a slot.
-    /// \return If the slot is valid, returns \e true, otherwise returns \e false.
-    bool isValid() const
+    /// Returns the sender signal to which the slot is connected.
+    /// \returns The pointer to the sender signal, or \e nullptr if the slot is invalid.
+    SignalConcept* getSignal() const
+    {
+        return m_sender;
+    }
+
+    /// Checks whether a slot is active.
+    /// \return If the slot is active, returns \e true, otherwise returns \e false.
+    bool isActive() const
     {
         auto release = [](auto& tracker) { tracker->release(tracker.get()); };
         auto it = find_if(m_trackers, [](auto& tracker) { return !tracker->retain(tracker.get()); });
@@ -45,11 +52,11 @@ public:
 
         // Release all, there is no weak_ptr locker that would disturb.
         for_each(m_trackers, release);
-        return isValidOverride();
+        return isActiveOverride();
     }
 
-    /// Disconnects a slot.
-    void disconnect()
+    /// Deactivates a slot.
+    void deactivate()
     {
         lock_guard lock(*this);
         auto detacher = [this](auto& tracker)
@@ -73,12 +80,18 @@ protected:
     using TrackersContainer = vector<TrackerPtr>;
 
     /// Constructor.
-    explicit Slot() = default;
+    explicit Slot(SignalConcept& sender)
+        : m_sender(&sender)
+    {
+    }
 
     /// To implement slot specific validation, override this method.
-    virtual bool isValidOverride() const = 0;
+    virtual bool isActiveOverride() const = 0;
     /// To implement slot specific disconnect, override this method.
     virtual void disconnectOverride() = 0;
+
+    /// The sender signal to which the slot is connected.
+    SignalConcept* m_sender = nullptr;
 
     /// The binded trackers.
     TrackersContainer m_trackers;
@@ -93,6 +106,9 @@ public:
     ReturnType activate(Arguments&&...);
 
 protected:
+    /// Constructor.
+    explicit SlotImpl(SignalConcept& sender);
+
     /// To implement slot specific activation, override this method.
     virtual ReturnType activateOverride(Arguments&&...) = 0;
 };
@@ -102,38 +118,26 @@ protected:
 class SYWU_API Connection
 {
     friend class SignalConcept;
-    template <typename, typename, typename...>
-    friend class SignalConceptImpl;
 
 public:
     /// Constructor.
     Connection() = default;
 
-    /// Constructs the connection with the \a sender signal.
-    Connection(SignalConcept& sender, SlotPtr slot)
-        : m_sender(&sender)
-        , m_slot(slot)
+    /// Constructs the connection with a \a slot.
+    Connection(SlotPtr slot)
+        : m_slot(slot)
     {
     }
 
     /// Destructor.
     ~Connection() = default;
 
-    /// Disconnect the connection from the signal.
-    void disconnect()
-    {
-        auto slot = m_slot.lock();
-        SYWU_ASSERT(slot);
-        slot->disconnect();
-        m_slot.reset();
-        m_sender = nullptr;
-    }
-
     /// Returns the sender signal of the connection.
     /// \return The sender signal. If the connection is invalid, returns \e nullptr.
     SignalConcept* getSender() const
     {
-        return m_sender;
+        const auto slot = m_slot.lock();
+        return slot ? slot->getSignal() : nullptr;
     }
 
     /// Returns the sender signal of the connection.
@@ -142,7 +146,8 @@ public:
     template <class SignalType>
     SignalType* getSender() const
     {
-        return static_cast<SignalType*>(m_sender);
+        const auto slot = m_slot.lock();
+        return slot ? static_cast<SignalType*>(slot->getSignal()) : nullptr;
     }
 
     /// Returns the valid state of the connection.
@@ -151,11 +156,7 @@ public:
     operator bool() const
     {
         const auto slot = m_slot.lock();
-        if (!m_sender || !slot)
-        {
-            return false;
-        }
-        return slot->isValid();
+        return slot && slot->isActive();
     }
 
     /// Binds trackables to the slot.
@@ -163,17 +164,17 @@ public:
     template <class... Trackables>
     Connection& bind(Trackables... trackables);
 
-protected:
-
-    SignalConcept* m_sender = nullptr;
+private:
     SlotWeakPtr m_slot;
 };
 
-struct ConnectionHelper
+/// This class provides the token of the active connection. You can use the members of this class to get information
+/// about the emitter signal, and to manipulate the signal as well as to disconnect the slot.
+struct ActiveConnection
 {
     /// The current connection. Use this member to access the connection that holds the connected
     /// slot that is activated by the signal.
-    static inline Connection currentConnection;
+    static inline Connection connection;
 };
 
 /// The SignalConcept defines the concept of the signals. Defined as a lockable for convenience, holds the
@@ -208,7 +209,8 @@ public:
         {
             return;
         }
-        connection.disconnect();
+
+        slot->deactivate();
         erase(m_slots, slot);
     }
 
@@ -216,6 +218,7 @@ protected:
     /// Hidden default constructor.
     explicit SignalConcept() = default;
 
+    /// The container with the connected slots.
     using SlotContainer = vector<SlotPtr>;
     SlotContainer m_slots;
 
@@ -285,7 +288,7 @@ protected:
         {
             auto slot = m_slots.back();
             m_slots.pop_back();
-            slot->disconnect();
+            slot->getSignal()->disconnect({slot});
         }
     }
 
