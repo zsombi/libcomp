@@ -123,10 +123,10 @@ private:
 struct ConnectionSwapper
 {
     Connection previousConnection;
-    explicit ConnectionSwapper(Connection connection)
+    explicit ConnectionSwapper(SlotPtr slot)
         : previousConnection(ActiveConnection::connection)
     {
-        ActiveConnection::connection = move(connection);
+        ActiveConnection::connection = Connection(slot);
     }
     ~ConnectionSwapper()
     {
@@ -163,7 +163,7 @@ size_t SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::operator()(Arg
         }
         else
         {
-            ConnectionSwapper backupConnection({{slot}});
+            ConnectionSwapper backupConnection(slot);
             relock_guard relock(*slot);
             static_pointer_cast<SlotType>(slot)->activate(forward<Arguments>(arguments)...);
             ++count;
