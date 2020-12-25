@@ -308,6 +308,20 @@ TEST_F(SignalTest, deleteEmitterSignalFromSlot)
     EXPECT_FALSE(connection3);
 }
 
+TEST_F(SignalTest, deleteConnectedSignal)
+{
+    using SignalType = sywu::Signal<void()>;
+    auto sender = sywu::make_unique<SignalType>();
+    auto receiver = sywu::make_unique<SignalType>();
+
+    auto connection = sender->connect(*receiver);
+    EXPECT_TRUE(connection);
+    EXPECT_EQ(1, (*sender)());
+    receiver.reset();
+    EXPECT_FALSE(connection);
+    EXPECT_EQ(0, (*sender)());
+}
+
 struct Functor
 {
     void operator()(int& value)
