@@ -18,7 +18,7 @@ namespace sywu
 
 /// Signal concept implementation.
 template <class DerivedClass, typename ReturnType, typename... Arguments>
-class SYWU_TEMPLATE_API SignalConceptImpl : public SignalConcept
+class SYWU_TEMPLATE_API SignalConceptImpl : public SignalConcept, public Trackable
 {
     DerivedClass* getSelf()
     {
@@ -97,7 +97,6 @@ public:
 
     /// Emit override for method signals.
     size_t operator()(Arguments... arguments);
-
 };
 
 } // namespace sywu

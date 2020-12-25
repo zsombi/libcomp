@@ -85,11 +85,6 @@ class SYWU_TEMPLATE_API SignalSlot final : public SlotImpl<ReturnType, Arguments
 {
     using Base = SlotImpl<ReturnType, Arguments...>;
 
-    bool isActiveOverride() const override
-    {
-        return m_receiver != nullptr;
-    }
-
     void deactivateOverride() override
     {
         m_receiver = nullptr;
@@ -239,6 +234,7 @@ Connection SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::connect(Si
         "incompatible signal signature");
 
     auto slot = make_shared<Slot, SignalSlot<ReceiverSignal, RReturnType, Arguments...>>(*this, receiver);
+    receiver.attach(slot);
     return addSlot(slot);
 }
 

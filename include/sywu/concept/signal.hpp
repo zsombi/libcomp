@@ -280,7 +280,7 @@ public:
     /// Destructor.
     ~Trackable()
     {
-        disconnectSlots();
+        disconnectTrackedSlots();
     }
 
     /// Retains the trackable.
@@ -301,27 +301,27 @@ public:
     /// Attaches a \a slot to the trackable.
     void attach(SlotPtr slot)
     {
-        m_slots.push_back(slot);
+        m_trackedSlots.push_back(slot);
     }
 
     /// Detaches the slot from the trackable.
     void detach(SlotPtr slot)
     {
-        erase_first(m_slots, slot);
+        erase_first(m_trackedSlots, slot);
     }
 
 protected:
     /// Constructor.
     explicit Trackable() = default;
 
-    /// Disconnects the attached slot. Call thsi method if you want to disconnect from the attached slot
+    /// Disconnects the attached slot. Call this method if you want to disconnect from the attached slot
     /// earlier than at the trackable destruction time.
-    void disconnectSlots()
+    void disconnectTrackedSlots()
     {
-        while (!m_slots.empty())
+        while (!m_trackedSlots.empty())
         {
-            auto slot = m_slots.back();
-            m_slots.pop_back();
+            auto slot = m_trackedSlots.back();
+            m_trackedSlots.pop_back();
             auto signal = slot->getSignal();
             if (signal)
             {
@@ -331,7 +331,7 @@ protected:
     }
 
 private:
-    vector<SlotPtr> m_slots;
+    vector<SlotPtr> m_trackedSlots;
     atomic_int m_refCount = 0;
 };
 
