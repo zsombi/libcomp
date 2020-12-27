@@ -8,18 +8,6 @@
 namespace sywu
 {
 
-struct Tracker
-{
-    // Attaches a slot to a tracker.
-    void (*attach)(Tracker*, SlotPtr) = nullptr;
-    // Detaches a slot from a tracker.
-    void (*detach)(Tracker*, SlotPtr) = nullptr;
-    // Retains the tracker. If the retain succeeds, returns true, otherwise false.
-    bool (*retain)(Tracker*) = nullptr;
-    // Releases the tracker. If the tracker can be deleted, returns true, otherwise false..
-    bool (*release)(Tracker*) = nullptr;
-};
-
 namespace
 {
 
@@ -43,41 +31,30 @@ struct TrackablePtrTracker : Tracker
     explicit TrackablePtrTracker(Trackable* trackable)
         : trackable(trackable)
     {
-        attach = &TrackablePtrTracker::_attach;
-        detach = &TrackablePtrTracker::_detach;
-        retain = &TrackablePtrTracker::_retain;
-        release = &TrackablePtrTracker::_release;
     }
-    ~TrackablePtrTracker()
+    void attach(SlotPtr slot) override
     {
+        trackable->attach(slot);
     }
-    static void _attach(Tracker* tracker, SlotPtr slot)
+    void detach(SlotPtr slot) override
     {
-        auto self = static_cast<TrackablePtrTracker*>(tracker);
-        self->trackable->attach(slot);
+        trackable->detach(slot);
     }
-    static void _detach(Tracker* tracker, SlotPtr slot)
+    bool retain() override
     {
-        auto self = static_cast<TrackablePtrTracker*>(tracker);
-        self->trackable->detach(slot);
-    }
-    static bool _retain(Tracker* tracker)
-    {
-        auto self = static_cast<TrackablePtrTracker*>(tracker);
-        if (!self || !self->trackable)
+        if (!trackable)
         {
             return false;
         }
-        return self->trackable->retain();
+        return trackable->retain();
     }
-    static bool _release(Tracker* tracker)
+    bool release() override
     {
-        auto self = static_cast<TrackablePtrTracker*>(tracker);
-        if (!self || !self->trackable)
+        if (!trackable)
         {
             return true;
         }
-        return self->trackable->release();
+        return trackable->release();
     }
 };
 
@@ -89,32 +66,26 @@ struct WeakPtrTracker : Tracker
     explicit WeakPtrTracker(weak_ptr<Type> trackable)
         : trackable(trackable)
     {
-        attach = &WeakPtrTracker::_attach;
-        detach = &WeakPtrTracker::_detach;
-        retain = &WeakPtrTracker::_retain;
-        release = &WeakPtrTracker::_release;
     }
     ~WeakPtrTracker()
     {
         trackable.reset();
     }
-    static void _attach(Tracker*, SlotPtr)
+    void attach(SlotPtr) override
     {
     }
-    static void _detach(Tracker*, SlotPtr)
+    void detach(SlotPtr) override
     {
     }
-    static bool _retain(Tracker* tracker)
+    bool retain() override
     {
-        auto self = static_cast<WeakPtrTracker*>(tracker);
-        self->locked = self->trackable.lock();
-        return self->locked != nullptr;
+        locked = trackable.lock();
+        return locked != nullptr;
     }
-    static bool _release(Tracker* tracker)
+    bool release() override
     {
-        auto self = static_cast<WeakPtrTracker*>(tracker);
-        self->locked.reset();
-        return self->trackable.use_count() == 0;
+        locked.reset();
+        return trackable.use_count() == 0;
     }
 };
 
@@ -125,7 +96,7 @@ template <class SlotType, bool DisconnectOnRelease>
 Slot::Track<SlotType, DisconnectOnRelease>::Track(SlotType& slot)
     : m_slot(slot)
 {
-    m_lastLocked = find_if(m_slot.m_trackers, [](auto& tracker) { return !tracker->retain(tracker.get()); });
+    m_lastLocked = find_if(m_slot.m_trackers, [](auto& tracker) { return !tracker->retain(); });
 }
 
 template <class SlotType, bool DisconnectOnRelease>
@@ -134,7 +105,7 @@ Slot::Track<SlotType, DisconnectOnRelease>::~Track()
     auto dirty = false;
     auto release = [&dirty](auto& tracker)
     {
-        auto released = tracker->release(tracker.get());
+        auto released = tracker->release();
         dirty |= released;
         return released;
     };
@@ -167,14 +138,14 @@ void Slot::bind(TrackableType trackable)
     if constexpr (is_trackable_pointer_v<TrackableType>)
     {
         auto tracker = make_unique<TrackablePtrTracker>(trackable);
-        tracker->attach(tracker.get(), shared_from_this());
+        tracker->attach(shared_from_this());
         m_trackers.push_back(move(tracker));
     }
     else if constexpr (is_weak_ptr_v<TrackableType> || is_shared_ptr_v<TrackableType>)
     {
         using Type = typename pointer_traits<TrackableType>::element_type;
         auto tracker = make_unique<WeakPtrTracker<Type>>(trackable);
-        tracker->attach(tracker.get(), shared_from_this());
+        tracker->attach(shared_from_this());
         m_trackers.insert(m_trackers.begin(), move(tracker));
     }
 }

@@ -12,13 +12,23 @@ namespace sywu
 
 class SignalConcept;
 class Connection;
-
-struct Tracker;
-using TrackerPtr = unique_ptr<Tracker>;
-
 class Slot;
 using SlotPtr = shared_ptr<Slot>;
 using SlotWeakPtr = weak_ptr<Slot>;
+
+struct SYWU_API Tracker
+{
+    virtual ~Tracker() = default;
+    // Attaches a slot to a tracker.
+    virtual void attach(SlotPtr) = 0;
+    // Detaches a slot from a tracker.
+    virtual void detach(SlotPtr) = 0;
+    // Retains the tracker. If the retain succeeds, returns true, otherwise false.
+    virtual bool retain() = 0;
+    // Releases the tracker. If the tracker can be deleted, returns true, otherwise false..
+    virtual bool release() = 0;
+};
+using TrackerPtr = unique_ptr<Tracker>;
 
 /// The Slot holds the invocable connected to a signal. The slot hosts a function, a function object, a method
 /// or an other signal.
@@ -73,7 +83,7 @@ public:
 
         auto detacher = [this](auto& tracker)
         {
-            tracker->detach(tracker.get(), shared_from_this());
+            tracker->detach(shared_from_this());
         };
         for_each(m_trackers, detacher);
         m_trackers.clear();
