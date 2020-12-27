@@ -107,15 +107,8 @@ struct WeakPtrTracker : Tracker
     static bool _retain(Tracker* tracker)
     {
         auto self = static_cast<WeakPtrTracker*>(tracker);
-        try
-        {
-            self->locked = self->trackable.lock();
-            return self->locked != nullptr;
-        }
-        catch (const bad_weak_ptr&)
-        {
-            return false;
-        }
+        self->locked = self->trackable.lock();
+        return self->locked != nullptr;
     }
     static bool _release(Tracker* tracker)
     {

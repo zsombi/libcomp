@@ -46,12 +46,19 @@ public:
             return false;
         }
 
-        Track<const Slot, false> track(*this);
-        if (!track.retainedInFull())
+        try
+        {
+            Track<const Slot, false> track(*this);
+            if (!track.retainedInFull())
+            {
+                return false;
+            }
+            return isActiveOverride();
+        }
+        catch (...)
         {
             return false;
         }
-        return isActiveOverride();
     }
 
     /// Deactivates a slot.

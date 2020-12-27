@@ -56,6 +56,16 @@ struct is_shared_ptr<T, enable_if_t<is_same_v<decay_t<T>, shared_ptr<typename de
 template <typename T>
 constexpr bool is_shared_ptr_v = is_shared_ptr<T>::value;
 
+/// Detect if a type is derived from enable_shared_from_this<>
+template <typename T, typename = void>
+struct has_shared_from_this : false_type {};
+
+template <typename T>
+struct has_shared_from_this<T, void_t<decltype(declval<T>().shared_from_this())>> : true_type {};
+
+template <typename T>
+constexpr bool has_shared_from_this_v = has_shared_from_this<T>::value;
+
 /// \}
 
 /// std::make_shared initiates lots of control templates, creates loads of control blocks and deleters,
