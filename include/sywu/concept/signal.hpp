@@ -277,10 +277,15 @@ public:
         }
 
     }
+
+    /// Constructor.
+    explicit Trackable() = default;
+
     /// Destructor.
     ~Trackable()
     {
         disconnectTrackedSlots();
+        m_refCount = 0;
     }
 
     /// Retains the trackable.
@@ -311,10 +316,7 @@ public:
     }
 
 protected:
-    /// Constructor.
-    explicit Trackable() = default;
-
-    /// Disconnects the attached slot. Call this method if you want to disconnect from the attached slot
+    /// Disconnects the attached slots. Call this method if you want to disconnect from the attached slot
     /// earlier than at the trackable destruction time.
     void disconnectTrackedSlots()
     {

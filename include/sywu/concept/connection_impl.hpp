@@ -3,6 +3,7 @@
 
 #include <sywu/concept/signal.hpp>
 #include <sywu/wrap/exception.hpp>
+#include <sywu/wrap/intrusive_ptr.hpp>
 
 namespace sywu
 {
@@ -72,11 +73,11 @@ struct TrackablePtrTracker : Tracker
     static bool _release(Tracker* tracker)
     {
         auto self = static_cast<TrackablePtrTracker*>(tracker);
-        if (!self || !self->trackable || self->trackable->release())
+        if (!self || !self->trackable)
         {
             return true;
         }
-        return false;
+        return self->trackable->release();
     }
 };
 
@@ -138,7 +139,12 @@ template <class SlotType, bool DisconnectOnRelease>
 Slot::Track<SlotType, DisconnectOnRelease>::~Track()
 {
     auto dirty = false;
-    auto release = [&dirty](auto& tracker) { dirty = tracker->release(tracker.get()); return dirty; };
+    auto release = [&dirty](auto& tracker)
+    {
+        auto released = tracker->release(tracker.get());
+        dirty |= released;
+        return released;
+    };
     if constexpr (DisconnectOnRelease)
     {
         erase_if(m_slot.m_trackers, release);
@@ -168,12 +174,6 @@ void Slot::bind(TrackableType trackable)
     if constexpr (is_trackable_pointer_v<TrackableType>)
     {
         auto tracker = make_unique<TrackablePtrTracker>(trackable);
-        tracker->attach(tracker.get(), shared_from_this());
-        m_trackers.push_back(move(tracker));
-    }
-    else if constexpr (is_trackable_class_v<TrackableType>)
-    {
-        auto tracker = make_unique<TrackablePtrTracker>(&trackable);
         tracker->attach(tracker.get(), shared_from_this());
         m_trackers.push_back(move(tracker));
     }

@@ -15,7 +15,17 @@ struct Deleter
 class Trackable : public sywu::Trackable
 {
 public:
-    explicit Trackable() = default;
+    explicit Trackable()
+    {
+        retain();
+    }
+    ~Trackable()
+    {
+        if (!release())
+        {
+            std::puts("Warning: retained object deleted!");
+        }
+    }
 };
 
 class Object : public sywu::enable_shared_from_this<Object>
@@ -147,7 +157,7 @@ TEST_F(TrackableTest, deleteSharedPtrTrackableInSlotDisconnects)
 }
 
 // The application developer should be able to destroy a trackable in the slot to shich the trackable is bount to.
-TEST_F(TrackableTest, deleteOneTrackableInSlotDisconnects)
+TEST_F(TrackableTest, deleteOneFromTrackablesInSlotDisconnects_sharedPtr)
 {
     using SignalType = sywu::Signal<void()>;
     SignalType signal;
@@ -167,6 +177,58 @@ TEST_F(TrackableTest, deleteOneTrackableInSlotDisconnects)
     EXPECT_FALSE(trackable1);
     // the second trackable is not destroyed.
     EXPECT_TRUE(trackable2);
+    // The deleter slot is disconnected.
+    EXPECT_FALSE(connection);
+    EXPECT_EQ(2, signal());
+}
+
+// The application developer should be able to destroy a trackable in the slot to shich the trackable is bount to.
+TEST_F(TrackableTest, deleteOneFromTrackablesInSlotDisconnects_trackable)
+{
+    using SignalType = sywu::Signal<void()>;
+    SignalType signal;
+    auto trackable1 = sywu::make_shared<Object>();
+    auto trackable2 = sywu::make_unique<Trackable>();
+
+    auto deleter = [&trackable2]()
+    {
+        trackable2.reset();
+    };
+
+    // connect 3 slots
+    signal.connect([](){});
+    auto connection = signal.connect(deleter).bind(trackable1, trackable2.get());
+    signal.connect([](){});
+    EXPECT_EQ(3, signal());
+    EXPECT_FALSE(trackable2);
+    // the other trackable is not destroyed.
+    EXPECT_TRUE(trackable1);
+    // The deleter slot is disconnected.
+    EXPECT_FALSE(connection);
+    EXPECT_EQ(2, signal());
+}
+
+// The application developer should be able to destroy a trackable in the slot to shich the trackable is bount to.
+TEST_F(TrackableTest, deleteOneFromTrackablesInSlotDisconnects_intrusivePtrTrackable)
+{
+    using SignalType = sywu::Signal<void()>;
+    SignalType signal;
+    auto trackable1 = sywu::make_shared<Object>();
+    auto trackable2 = sywu::make_intrusive<sywu::Trackable>();
+
+    auto deleter = [&trackable2]()
+    {
+        trackable2.reset();
+    };
+
+    // connect 3 slots
+    signal.connect([](){});
+    auto connection = signal.connect(deleter).bind(trackable1, trackable2.get());
+    signal.connect([](){});
+    EXPECT_EQ(3, signal());
+    EXPECT_FALSE(trackable2);
+    // the other trackable is not destroyed.
+    EXPECT_TRUE(trackable1);
     // The deleter slot is disconnected.
     EXPECT_FALSE(connection);
     EXPECT_EQ(2, signal());

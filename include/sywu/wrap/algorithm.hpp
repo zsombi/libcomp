@@ -11,6 +11,7 @@ using std::find;
 using std::find_if;
 using std::remove;
 using std::remove_if;
+using std::swap;
 
 /// Template function to call a function \a f on an rgument pack. The function is expected to take a single
 /// argument.

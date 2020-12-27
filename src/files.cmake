@@ -5,6 +5,7 @@ set(HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/sywu/wrap/exception.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/sywu/wrap/function_traits.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/sywu/wrap/functional.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/sywu/wrap/intrusive_ptr.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/sywu/wrap/memory.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/sywu/wrap/mutex.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/sywu/wrap/tuple.hpp
