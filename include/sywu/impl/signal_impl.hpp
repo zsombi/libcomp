@@ -20,10 +20,6 @@ class SYWU_TEMPLATE_API FunctionSlot final : public SlotImpl<ReturnType, Argumen
 {
     using Base = SlotImpl<ReturnType, Arguments...>;
 
-    void deactivateOverride() override
-    {
-    }
-
     ReturnType activateOverride(Arguments&&... args) override
     {
         return invoke(m_function, forward<Arguments>(args)...);
@@ -45,16 +41,6 @@ class SYWU_TEMPLATE_API MethodSlot final : public SlotImpl<ReturnType, Arguments
 {
     using Base = SlotImpl<ReturnType, Arguments...>;
 
-    bool isActiveOverride() const override
-    {
-        return !m_target.expired();
-    }
-
-    void deactivateOverride() override
-    {
-        m_target.reset();
-    }
-
     ReturnType activateOverride(Arguments&&... arguments) override
     {
         auto slotHost = m_target.lock();
@@ -72,7 +58,7 @@ public:
         : Base(sender)
         , m_target(target)
         , m_function(function)
-    {        
+    {
     }
 
 private:
@@ -84,11 +70,6 @@ template <typename ReceiverSignal, typename ReturnType, typename... Arguments>
 class SYWU_TEMPLATE_API SignalSlot final : public SlotImpl<ReturnType, Arguments...>
 {
     using Base = SlotImpl<ReturnType, Arguments...>;
-
-    void deactivateOverride() override
-    {
-        m_receiver = nullptr;
-    }
 
     ReturnType activateOverride(Arguments&&... arguments) override
     {
@@ -206,6 +187,7 @@ SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::connect(shared_ptr<ty
         "Incompatible slot signature");
 
     auto slot = make_shared<Slot, MethodSlot<Object, SlotReturnType, Arguments...>>(*this, receiver, method);
+    slot->bind(receiver);
     return addSlot(slot);
 }
 
@@ -254,7 +236,6 @@ size_t MemberSignal<SignalHost, ReturnType(Arguments...)>::operator()(Arguments.
     SYWU_ASSERT(lockedHost);
     return BaseClass::operator()(forward<Arguments>(arguments)...);
 }
-
 
 } // namespace sywu
 

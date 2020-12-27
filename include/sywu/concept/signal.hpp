@@ -109,7 +109,9 @@ protected:
         return true;
     }
     /// To implement slot specific disconnect, override this method.
-    virtual void deactivateOverride() = 0;
+    virtual void deactivateOverride()
+    {
+    }
 
     /// The sender signal to which the slot is connected.
     SignalConcept* m_sender = nullptr;

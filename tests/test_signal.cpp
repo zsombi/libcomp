@@ -241,6 +241,7 @@ TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted)
     SignalType signal3;
 
     auto object = sywu::make_shared<Object1>();
+    auto weakObject = sywu::weak_ptr<Object1>(object);
     auto connection1 = signal1.connect(object, &Object1::methodWithNoArg);
     auto connection2 = signal2.connect(object, &Object1::methodWithNoArg);
     auto connection3 = signal3.connect(object, &Object1::methodWithNoArg);
@@ -249,7 +250,9 @@ TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted)
         object.reset();
     };
     signal1.connect(objectDeleter);
+    EXPECT_EQ(1, weakObject.use_count());
     signal1();
+    EXPECT_EQ(0, weakObject.use_count());
     EXPECT_FALSE(connection1);
     EXPECT_FALSE(connection2);
     EXPECT_FALSE(connection3);
