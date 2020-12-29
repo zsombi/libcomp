@@ -32,7 +32,7 @@ using TrackerPtr = unique_ptr<Tracker>;
 
 /// The Slot holds the invocable connected to a signal. The slot hosts a function, a function object, a method
 /// or an other signal.
-class SYWU_API Slot : public Lockable, public enable_shared_from_this<Slot>
+class SYWU_API Slot : public Lockable<FlagGuard>, public enable_shared_from_this<Slot>
 {
     SYWU_DISABLE_COPY_OR_MOVE(Slot);
 
@@ -219,7 +219,7 @@ struct ActiveConnection
 
 /// The SignalConcept defines the concept of the signals. Defined as a lockable for convenience, holds the
 /// connections of the signal.
-class SYWU_API SignalConcept : public Lockable
+class SYWU_API SignalConcept : public Lockable<FlagGuard>
 {
     SYWU_DISABLE_COPY_OR_MOVE(SignalConcept);
     friend class Connection;

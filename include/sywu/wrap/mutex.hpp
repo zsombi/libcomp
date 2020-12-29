@@ -99,13 +99,10 @@ struct SYWU_API FlagGuard : protected atomic_bool
 };
 
 /// Implements a lockable object.
+template <typename LockType>
 class SYWU_API Lockable
 {
-#ifdef SYWU_CONFIG_THREAD_ENABLED
-    mutable mutex m_mutex;
-#else
-    FlagGuard m_mutex;
-#endif
+    LockType m_mutex;
 
     SYWU_DISABLE_COPY_OR_MOVE(Lockable)
 
