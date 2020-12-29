@@ -1,8 +1,8 @@
 #ifndef SYWU_FUNCTION_TRAITS_HPP
 #define SYWU_FUNCTION_TRAITS_HPP
 
-#include <sywu/wrap/type_traits.hpp>
 #include <sywu/wrap/tuple.hpp>
+#include <sywu/wrap/type_traits.hpp>
 
 namespace sywu
 {
@@ -26,13 +26,6 @@ struct function_traits : public function_traits<decltype(&Function::operator())>
     static constexpr int type = FunctionType::Functor;
 };
 
-/// Tests a function for
-template <typename Function>
-struct is_lambda
-{
-    static constexpr bool value = function_traits<Function>::type == FunctionType::Functor;
-};
-
 /// Method traits.
 template <class TObject, typename TRet, typename... Args>
 struct function_traits<TRet(TObject::*)(Args...)>
@@ -53,10 +46,7 @@ struct function_traits<TRet(TObject::*)(Args...)>
     };
 
     template <typename... TestArgs>
-    struct test_arguments
-    {
-        static constexpr bool value = is_same_v<tuple<Args...>, tuple<TestArgs...>>;
-    };
+    static constexpr bool is_same_args = is_same_v<tuple<Args...>, tuple<TestArgs...>>;
 };
 
 /// Const method traits.
@@ -79,10 +69,7 @@ struct function_traits<TRet(TObject::*)(Args...) const>
     };
 
     template <typename... TestArgs>
-    struct test_arguments
-    {
-        static constexpr bool value = is_same_v<tuple<Args...>, tuple<TestArgs...>>;
-    };
+    static constexpr bool is_same_args = is_same_v<tuple<Args...>, tuple<TestArgs...>>;
 };
 
 /// Function and static member function traits.
@@ -104,10 +91,7 @@ struct function_traits<TRet(*)(Args...)>
     };
 
     template <typename... TestArgs>
-    struct test_arguments
-    {
-        static constexpr bool value = is_same_v<tuple<Args...>, tuple<TestArgs...>>;
-    };
+    static constexpr bool is_same_args = is_same_v<tuple<Args...>, tuple<TestArgs...>>;
 };
 
 } // namespace sywu

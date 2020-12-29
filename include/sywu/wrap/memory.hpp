@@ -8,6 +8,8 @@
 namespace sywu
 {
 
+using std::pointer_traits;
+
 using std::unique_ptr;
 using std::default_delete;
 using std::shared_ptr;

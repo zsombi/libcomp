@@ -182,7 +182,7 @@ SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::connect(shared_ptr<ty
     using SlotReturnType = typename function_traits<FunctionType>::return_type;
 
     static_assert(
-        function_traits<FunctionType>::template test_arguments<Arguments...>::value &&
+        function_traits<FunctionType>::template is_same_args<Arguments...> &&
         is_same_v<ReturnType, SlotReturnType>,
         "Incompatible slot signature");
 
@@ -198,7 +198,7 @@ SignalConceptImpl<DerivedClass, ReturnType, Arguments...>::connect(const Functio
 {
     using SlotReturnType = typename function_traits<FunctionType>::return_type;
     static_assert(
-        function_traits<FunctionType>::template test_arguments<Arguments...>::value &&
+        function_traits<FunctionType>::template is_same_args<Arguments...> &&
         is_same_v<ReturnType, SlotReturnType>,
         "Incompatible slot signature");
 
