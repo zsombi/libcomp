@@ -152,15 +152,9 @@ void Slot::bind(TrackableType trackable)
 
 
 template <typename ReturnType, typename... Arguments>
-SlotImpl<ReturnType, Arguments...>::SlotImpl(SignalConcept& sender)
-    : Slot(sender)
-{
-}
-
-template <typename ReturnType, typename... Arguments>
 ReturnType SlotImpl<ReturnType, Arguments...>::activate(Arguments&&... args)
 {
-    if (!m_sender)
+    if (!isConnected())
     {
         throw bad_slot();
     }

@@ -80,23 +80,23 @@ struct SYWU_API FlagGuard : protected atomic_bool
     }
     bool try_lock()
     {
-        if (!load())
-        {
-            store(true);
-            return true;
-        }
-        return false;
+        const auto state = exchange(true);
+        return !state;
     }
     void unlock()
     {
-        SYWU_ASSERT(load());
-        store(false);
+        const auto state = exchange(false);
+        SYWU_ASSERT(state);
     }
     bool isLocked()
     {
         return load();
     }
 };
+
+#ifndef SYWU_CONFIG_THREAD_ENABLED
+using mutex = FlagGuard;
+#endif
 
 /// Implements a lockable object.
 template <typename LockType>
