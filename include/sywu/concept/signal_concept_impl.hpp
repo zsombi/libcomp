@@ -117,7 +117,7 @@ SignalConcept<LockType, ReturnType, Arguments...>::~SignalConcept()
     {
         auto slot = m_slots.back();
         m_slots.pop_back();
-        slot->deactivate();
+        slot->disconnect();
     }
 }
 

@@ -114,7 +114,7 @@ Slot::Track<SlotType, DisconnectOnRelease>::~Track()
         erase_if(m_slot.m_trackers, release);
         if (dirty)
         {
-            m_slot.deactivate();
+            m_slot.disconnect();
         }
     }
     else

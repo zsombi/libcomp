@@ -65,7 +65,7 @@ public:
     }
 
     /// Disconnects a slot.
-    void deactivate()
+    void disconnect()
     {
         lock_guard lock(*this);
         auto isConnected = m_isConnected.exchange(false);
@@ -146,11 +146,11 @@ public:
     void disconnect()
     {
         auto slot = m_slot.lock();
-        if (!slot || !slot->isConnected())
+        if (!slot)
         {
             return;
         }
-        slot->deactivate();
+        slot->disconnect();
     }
 
     /// Returns the valid state of the connection.
