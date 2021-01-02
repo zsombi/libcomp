@@ -16,23 +16,27 @@ class Slot;
 using SlotPtr = shared_ptr<Slot>;
 using SlotWeakPtr = weak_ptr<Slot>;
 
-struct SYWU_API Tracker
+struct SYWU_API AbstractTracker
 {
-    virtual ~Tracker() = default;
-    // Attaches a slot to a tracker.
-    virtual void attach(SlotPtr) = 0;
-    // Detaches a slot from a tracker.
-    virtual void detach(SlotPtr) = 0;
-    // Retains the tracker. If the retain succeeds, returns true, otherwise false.
+    virtual ~AbstractTracker() = default;
+    /// Attaches a slot to a tracker.
+    virtual void track(SlotPtr)
+    {
+    }
+    /// Detaches a slot from a tracker.
+    virtual void untrack(SlotPtr)
+    {
+    }
+    /// Retains the tracker. If the retain succeeds, returns true, otherwise false.
     virtual bool retain() = 0;
-    // Releases the tracker. If the tracker can be deleted, returns true, otherwise false..
+    /// Releases the tracker. If the tracker can be deleted, returns true, otherwise false..
     virtual bool release() = 0;
 };
-using TrackerPtr = unique_ptr<Tracker>;
+using TrackerPtr = unique_ptr<AbstractTracker>;
 
 /// The Slot holds the invocable connected to a signal. The slot is a function, a function object, a method
 /// or an other signal.
-class SYWU_API Slot : public Lockable<FlagGuard>, public enable_shared_from_this<Slot>
+class SYWU_API Slot : public Lockable<mutex>, public enable_shared_from_this<Slot>
 {
     SYWU_DISABLE_COPY_OR_MOVE(Slot);
 
@@ -52,7 +56,7 @@ public:
         try
         {
             Track<const Slot, false> track(*this);
-            if (!track.retainedInFull())
+            if (!track.areAllRetained())
             {
                 return false;
             }
@@ -77,18 +81,18 @@ public:
 
         auto detacher = [this](auto& tracker)
         {
-            tracker->detach(shared_from_this());
+            tracker->untrack(shared_from_this());
         };
         for_each(m_trackers, detacher);
         m_trackers.clear();
     }
 
-    /// Binds a trackable object to the slot. The trackable object is either a shared pointer, a weak pointer,
-    /// or a Trackable derived object.
-    /// \tparam TrackableType The type of the trackable, a shared_ptr, weak_ptr, or a pointer to the Trackable
+    /// Binds a tracker object to the slot. The tracker object is either a shared pointer, a weak pointer,
+    /// or a Tracker derived object.
+    /// \tparam TrackerType The type of the tracker, a shared_ptr, weak_ptr, or a pointer to the Tracker
     ///         derived object.
-    template <class TrackableType>
-    void bind(TrackableType trackable);
+    template <class TrackerType>
+    void bind(TrackerType tracker);
 
 protected:
     /// The container with the binded trackers.
@@ -101,7 +105,7 @@ protected:
         TrackersContainer::const_iterator m_lastLocked;
         Track(SlotType& slot);
         ~Track();
-        bool retainedInFull() const;
+        bool areAllRetained() const;
     };
 
     /// Constructor.
@@ -164,8 +168,8 @@ public:
 
     /// Binds trackables to the slot.
     /// \param trackables... The trackables to bind.
-    template <class... Trackables>
-    Connection& bind(Trackables... trackables);
+    template <class... Trackers>
+    Connection& bind(Trackers... trackables);
 
     /// Returns the slot of the connection.
     /// \return The slot of the connection. If the connection is not valid, returns \e nullptr.
@@ -189,14 +193,14 @@ struct ActiveConnection
 
 /// To track the lifetime of a connection based on an arbitrary object that is not a smart pointer, use this class.
 /// You can use this class as a base class
-class SYWU_API Trackable
+class SYWU_API Tracker
 {
 public:
-    friend void intrusive_ptr_add_ref(Trackable* object)
+    friend void intrusive_ptr_add_ref(Tracker* object)
     {
         object->retain();
     }
-    friend void intrusive_ptr_release(Trackable* object)
+    friend void intrusive_ptr_release(Tracker* object)
     {
         if (object->release())
         {
@@ -205,10 +209,10 @@ public:
     }
 
     /// Constructor.
-    explicit Trackable() = default;
+    explicit Tracker() = default;
 
     /// Destructor.
-    ~Trackable()
+    ~Tracker()
     {
         disconnectTrackedSlots();
         m_refCount = 0;
@@ -230,13 +234,13 @@ public:
     }
 
     /// Attaches a \a slot to the trackable.
-    void attach(SlotPtr slot)
+    void track(SlotPtr slot)
     {
         m_trackedSlots.push_back(Connection(slot));
     }
 
     /// Detaches the slot from the trackable.
-    void detach(SlotPtr slot)
+    void untrack(SlotPtr slot)
     {
         erase_first(m_trackedSlots, Connection(slot));
     }
@@ -267,7 +271,7 @@ private:
 /// The SignalConcept defines the concept of the signals. Defined as a lockable for convenience, holds the
 /// connections of the signal.
 template <class LockType, typename ReturnType, typename... Arguments>
-class SYWU_TEMPLATE_API SignalConcept : public Lockable<LockType>, public Trackable
+class SYWU_TEMPLATE_API SignalConcept : public Lockable<LockType>, public Tracker
 {
 public:
     using SlotType = SlotImpl<ReturnType, Arguments...>;

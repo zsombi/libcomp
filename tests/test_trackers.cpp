@@ -12,7 +12,7 @@ struct Deleter
     }
 };
 
-class Trackable : public sywu::Trackable
+class Trackable : public sywu::Tracker
 {
 public:
     explicit Trackable()
@@ -214,7 +214,7 @@ TEST_F(TrackableTest, deleteOneFromTrackablesInSlotDisconnects_intrusivePtrTrack
     using SignalType = sywu::Signal<void()>;
     SignalType signal;
     auto trackable1 = sywu::make_shared<Object>();
-    auto trackable2 = sywu::make_intrusive<sywu::Trackable>();
+    auto trackable2 = sywu::make_intrusive<sywu::Tracker>();
 
     auto deleter = [&trackable2]()
     {

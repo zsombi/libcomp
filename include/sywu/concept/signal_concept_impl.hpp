@@ -225,7 +225,7 @@ Connection SignalConcept<LockType, ReturnType, Arguments...>::connect(SignalConc
         "incompatible signal signature");
 
     auto slot = make_shared<Slot, SignalSlot<ReceiverSignal, RReturnType, Arguments...>>(receiver);
-    receiver.attach(slot);
+    receiver.track(slot);
     return addSlot(slot);
 }
 

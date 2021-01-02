@@ -12,7 +12,7 @@ namespace
 {
 
 template <typename T>
-constexpr bool is_trackable_class_v = is_base_of_v<Trackable, decay_t<T>>;
+constexpr bool is_trackable_class_v = is_base_of_v<Tracker, decay_t<T>>;
 
 template <typename T>
 constexpr bool is_trackable_pointer_v = is_pointer_v<T> && is_trackable_class_v<remove_pointer_t<T>>;
@@ -25,20 +25,20 @@ constexpr bool is_valid_trackable_arg = (
             is_shared_ptr_v<T>
             );
 
-struct TrackablePtrTracker : Tracker
+struct TrackablePtrTracker : AbstractTracker
 {
-    Trackable* trackable = nullptr;
-    explicit TrackablePtrTracker(Trackable* trackable)
+    Tracker* trackable = nullptr;
+    explicit TrackablePtrTracker(Tracker* trackable)
         : trackable(trackable)
     {
     }
-    void attach(SlotPtr slot) override
+    void track(SlotPtr slot) override
     {
-        trackable->attach(slot);
+        trackable->track(slot);
     }
-    void detach(SlotPtr slot) override
+    void untrack(SlotPtr slot) override
     {
-        trackable->detach(slot);
+        trackable->untrack(slot);
     }
     bool retain() override
     {
@@ -59,7 +59,7 @@ struct TrackablePtrTracker : Tracker
 };
 
 template <class Type>
-struct WeakPtrTracker : Tracker
+struct WeakPtrTracker : AbstractTracker
 {
     weak_ptr<Type> trackable;
     shared_ptr<Type> locked;
@@ -71,10 +71,10 @@ struct WeakPtrTracker : Tracker
     {
         trackable.reset();
     }
-    void attach(SlotPtr) override
+    void track(SlotPtr) override
     {
     }
-    void detach(SlotPtr) override
+    void untrack(SlotPtr) override
     {
     }
     bool retain() override
@@ -124,29 +124,29 @@ Slot::Track<SlotType, DisconnectOnRelease>::~Track()
 }
 
 template <class SlotType, bool DisconnectOnRelease>
-bool Slot::Track<SlotType, DisconnectOnRelease>::retainedInFull() const
+bool Slot::Track<SlotType, DisconnectOnRelease>::areAllRetained() const
 {
     return m_lastLocked == m_slot.m_trackers.end();
 }
 
 
-template <typename TrackableType>
-void Slot::bind(TrackableType trackable)
+template <typename TrackerType>
+void Slot::bind(TrackerType tracker)
 {
-    static_assert (is_valid_trackable_arg<TrackableType>, "Invalid trackable");
+    static_assert (is_valid_trackable_arg<TrackerType>, "Invalid trackable");
 
-    if constexpr (is_trackable_pointer_v<TrackableType>)
+    if constexpr (is_trackable_pointer_v<TrackerType>)
     {
-        auto tracker = make_unique<TrackablePtrTracker>(trackable);
-        tracker->attach(shared_from_this());
-        m_trackers.push_back(move(tracker));
+        auto _tracker = make_unique<TrackablePtrTracker>(tracker);
+        _tracker->track(shared_from_this());
+        m_trackers.push_back(move(_tracker));
     }
-    else if constexpr (is_weak_ptr_v<TrackableType> || is_shared_ptr_v<TrackableType>)
+    else if constexpr (is_weak_ptr_v<TrackerType> || is_shared_ptr_v<TrackerType>)
     {
-        using Type = typename pointer_traits<TrackableType>::element_type;
-        auto tracker = make_unique<WeakPtrTracker<Type>>(trackable);
-        tracker->attach(shared_from_this());
-        m_trackers.insert(m_trackers.begin(), move(tracker));
+        using Type = typename pointer_traits<TrackerType>::element_type;
+        auto _tracker = make_unique<WeakPtrTracker<Type>>(tracker);
+        _tracker->track(shared_from_this());
+        m_trackers.insert(m_trackers.begin(), move(_tracker));
     }
 }
 
@@ -160,7 +160,7 @@ ReturnType SlotImpl<ReturnType, Arguments...>::activate(Arguments&&... args)
     }
 
     Track<Slot, true> retain(*this);
-    if (!retain.retainedInFull())
+    if (!retain.areAllRetained())
     {
         throw bad_slot();
     }
@@ -168,19 +168,19 @@ ReturnType SlotImpl<ReturnType, Arguments...>::activate(Arguments&&... args)
     return activateOverride(forward<Arguments>(args)...);
 }
 
-template <class... Trackables>
-Connection& Connection::bind(Trackables... trackables)
+template <class... Trackers>
+Connection& Connection::bind(Trackers... trackers)
 {
     SYWU_ASSERT(*this);
     auto slot = m_slot.lock();
     SYWU_ASSERT(slot);
     lock_guard lock(*slot);
 
-    auto binder = [&slot](auto trackable)
+    auto binder = [&slot](auto tracker)
     {
-        slot->bind(trackable);
+        slot->bind(tracker);
     };
-    for_each_arg(binder, trackables...);
+    for_each_arg(binder, trackers...);
     return *this;
 }
 
