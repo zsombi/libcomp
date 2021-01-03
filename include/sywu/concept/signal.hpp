@@ -193,9 +193,8 @@ struct ActiveConnection
 
 /// To track the lifetime of a connection based on an arbitrary object that is not a smart pointer, use this class.
 /// You can use this class as a base class
-class SYWU_API Tracker
+class SYWU_API Tracker : public AbstractTracker
 {
-public:
     friend void intrusive_ptr_add_ref(Tracker* object)
     {
         object->retain();
@@ -208,6 +207,7 @@ public:
         }
     }
 
+public:
     /// Constructor.
     explicit Tracker() = default;
 
@@ -219,7 +219,7 @@ public:
     }
 
     /// Retains the trackable.
-    bool retain()
+    bool retain() override
     {
         ++m_refCount;
         return m_refCount.load() > 0;
@@ -227,20 +227,20 @@ public:
 
     /// Releases the trackable.
     /// \returns If the object should be released, returns true.
-    bool release()
+    bool release() override
     {
         --m_refCount;
         return (m_refCount <= 0);
     }
 
     /// Attaches a \a slot to the trackable.
-    void track(SlotPtr slot)
+    void track(SlotPtr slot) override
     {
         m_trackedSlots.push_back(Connection(slot));
     }
 
     /// Detaches the slot from the trackable.
-    void untrack(SlotPtr slot)
+    void untrack(SlotPtr slot) override
     {
         erase_first(m_trackedSlots, Connection(slot));
     }

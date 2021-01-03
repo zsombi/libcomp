@@ -25,10 +25,10 @@ constexpr bool is_valid_trackable_arg = (
             is_shared_ptr_v<T>
             );
 
-struct TrackablePtrTracker : AbstractTracker
+struct PtrTracker : AbstractTracker
 {
     Tracker* trackable = nullptr;
-    explicit TrackablePtrTracker(Tracker* trackable)
+    explicit PtrTracker(Tracker* trackable)
         : trackable(trackable)
     {
     }
@@ -137,7 +137,7 @@ void Slot::bind(TrackerType tracker)
 
     if constexpr (is_trackable_pointer_v<TrackerType>)
     {
-        auto _tracker = make_unique<TrackablePtrTracker>(tracker);
+        auto _tracker = make_unique<PtrTracker>(tracker);
         _tracker->track(shared_from_this());
         m_trackers.push_back(move(_tracker));
     }

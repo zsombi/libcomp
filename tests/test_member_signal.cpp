@@ -1,5 +1,4 @@
 #include "test_base.hpp"
-//#include <sywu/signal.hpp>
 #include <sywu/impl/signal_impl.hpp>
 
 class TestObject : public sywu::enable_shared_from_this<TestObject>

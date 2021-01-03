@@ -2,7 +2,7 @@
 #define SYWU_SIGNAL_CONCEPT_IMPL_HPP
 
 #include <sywu/concept/signal.hpp>
-#include <sywu/concept/concept_impl.hpp>
+#include <sywu/concept/slot_concept_impl.hpp>
 #include <sywu/wrap/memory.hpp>
 #include <sywu/wrap/exception.hpp>
 #include <sywu/wrap/functional.hpp>

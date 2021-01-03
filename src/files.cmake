@@ -19,7 +19,7 @@ set(HEADERS
     )
 
 set(PRIVATE_HEADERS
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/sywu/concept/concept_impl.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/sywu/concept/slot_concept_impl.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/sywu/concept/signal_concept_impl.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/sywu/impl/signal_impl.hpp
     )
