@@ -32,7 +32,6 @@ struct SYWU_API AbstractTracker
     /// Releases the tracker. If the tracker can be deleted, returns true, otherwise false..
     virtual bool release() = 0;
 };
-using TrackerPtr = unique_ptr<AbstractTracker>;
 
 /// The Slot holds the invocable connected to a signal. The slot is a function, a function object, a method
 /// or an other signal.
@@ -55,8 +54,8 @@ public:
 
         try
         {
-            Track<const Slot, false> track(*this);
-            if (!track.areAllRetained())
+            ScopeRetain<const Slot, false> track(*this);
+            if (!track)
             {
                 return false;
             }
@@ -96,16 +95,20 @@ public:
 
 protected:
     /// The container with the binded trackers.
+    using TrackerPtr = unique_ptr<AbstractTracker>;
     using TrackersContainer = vector<TrackerPtr>;
 
     template <class SlotType, bool DisconnectOnRelease = false>
-    struct Track
+    struct ScopeRetain
     {
         SlotType& m_slot;
         TrackersContainer::const_iterator m_lastLocked;
-        Track(SlotType& slot);
-        ~Track();
-        bool areAllRetained() const;
+        ScopeRetain(SlotType& slot);
+        ~ScopeRetain();
+        operator bool () const
+        {
+            return m_lastLocked == m_slot.m_trackers.end();
+        }
     };
 
     /// Constructor.

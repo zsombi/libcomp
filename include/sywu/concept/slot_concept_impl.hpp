@@ -71,12 +71,6 @@ struct WeakPtrTracker : AbstractTracker
     {
         trackable.reset();
     }
-    void track(SlotPtr) override
-    {
-    }
-    void untrack(SlotPtr) override
-    {
-    }
     bool retain() override
     {
         locked = trackable.lock();
@@ -93,14 +87,14 @@ struct WeakPtrTracker : AbstractTracker
 
 
 template <class SlotType, bool DisconnectOnRelease>
-Slot::Track<SlotType, DisconnectOnRelease>::Track(SlotType& slot)
+Slot::ScopeRetain<SlotType, DisconnectOnRelease>::ScopeRetain(SlotType& slot)
     : m_slot(slot)
 {
     m_lastLocked = find_if(m_slot.m_trackers, [](auto& tracker) { return !tracker->retain(); });
 }
 
 template <class SlotType, bool DisconnectOnRelease>
-Slot::Track<SlotType, DisconnectOnRelease>::~Track()
+Slot::ScopeRetain<SlotType, DisconnectOnRelease>::~ScopeRetain()
 {
     auto dirty = false;
     auto release = [&dirty](auto& tracker)
@@ -121,12 +115,6 @@ Slot::Track<SlotType, DisconnectOnRelease>::~Track()
     {
         for_each(m_slot.m_trackers.begin(), m_lastLocked, release);
     }
-}
-
-template <class SlotType, bool DisconnectOnRelease>
-bool Slot::Track<SlotType, DisconnectOnRelease>::areAllRetained() const
-{
-    return m_lastLocked == m_slot.m_trackers.end();
 }
 
 
@@ -159,8 +147,8 @@ ReturnType SlotImpl<ReturnType, Arguments...>::activate(Arguments&&... args)
         throw bad_slot();
     }
 
-    Track<Slot, true> retain(*this);
-    if (!retain.areAllRetained())
+    ScopeRetain<Slot, true> retain(*this);
+    if (!retain)
     {
         throw bad_slot();
     }

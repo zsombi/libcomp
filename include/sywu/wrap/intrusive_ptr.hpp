@@ -7,6 +7,9 @@
 #include <sywu/wrap/algorithm.hpp>
 #endif
 
+#include <sywu/wrap/atomic.hpp>
+#include <sywu/wrap/utility.hpp>
+
 namespace sywu
 {
 
@@ -45,6 +48,11 @@ public:
         }
     }
 
+    intrusive_ptr(intrusive_ptr&& rhs)
+    {
+        swap(rhs);
+    }
+
     ~intrusive_ptr()
     {
         if (m_ptr)
@@ -63,6 +71,12 @@ public:
     intrusive_ptr& operator=(const intrusive_ptr& rhs)
     {
         ThisType(rhs).swap(*this);
+        return *this;
+    }
+
+    intrusive_ptr& operator=(intrusive_ptr&& rhs)
+    {
+        ThisType(move(rhs)).swap(*this);
         return *this;
     }
 
@@ -115,11 +129,46 @@ private:
 
 #endif
 
+class enable_intrusive_ptr;
+
+template <typename T>
+void intrusive_ptr_add_ref(T* ptr)
+{
+    ++ptr->m_refCount;
+}
+
+template <typename T>
+void intrusive_ptr_release(T* ptr)
+{
+    if (--ptr->m_refCount == 0)
+    {
+        delete ptr;
+    }
+}
+
+class enable_intrusive_ptr
+{
+    atomic_int m_refCount = 0;
+    template <typename T> friend void intrusive_ptr_add_ref(T*);
+    template <typename T> friend void intrusive_ptr_release(T*);
+
+public:
+    explicit enable_intrusive_ptr() = default;
+    ~enable_intrusive_ptr() = default;
+
+protected:
+    int getRefCount() const
+    {
+        return m_refCount;
+    }
+};
+
+
 /// Utility function, creates an intrusive pointer.
 template <class T, typename... Arguments>
 intrusive_ptr<T> make_intrusive(Arguments&&... arguments)
 {
-    return intrusive_ptr<T>(new T(forward<Arguments>(arguments)...));
+    return move(intrusive_ptr<T>(new T(forward<Arguments>(arguments)...)));
 }
 
 }
