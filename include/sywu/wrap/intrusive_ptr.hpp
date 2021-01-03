@@ -146,6 +146,7 @@ void intrusive_ptr_release(T* ptr)
     }
 }
 
+/// Enables the use of intrusive pointers. Derive your class from this to use intrusive pointers.
 class enable_intrusive_ptr
 {
     atomic_int m_refCount = 0;
@@ -153,10 +154,22 @@ class enable_intrusive_ptr
     template <typename T> friend void intrusive_ptr_release(T*);
 
 public:
+    /// Constructor.
     explicit enable_intrusive_ptr() = default;
-    ~enable_intrusive_ptr() = default;
+
+    /// Returns an intrusive pointer from this.
+    /// \param addReference To increase the reference counter of the intrusive pointrer, pass \e true,
+    ///        otherwise pass \e false as argument.
+    /// \return The intrusive pointer from this.
+    template <class DerivedClass>
+    intrusive_ptr<DerivedClass> intrusive_from_this(bool addReference = true) const
+    {
+        return move(intrusive_ptr<DerivedClass>(this, addReference));
+    }
 
 protected:
+    /// Returns the reference counter of the intrusive pointer.
+    /// \return The reference counter of the intrusive pointer.
     int getRefCount() const
     {
         return m_refCount;
@@ -171,6 +184,6 @@ intrusive_ptr<T> make_intrusive(Arguments&&... arguments)
     return move(intrusive_ptr<T>(new T(forward<Arguments>(arguments)...)));
 }
 
-}
+} // namespace sywu
 
 #endif // SYWU_INTRUSIVE_PTR_HPP

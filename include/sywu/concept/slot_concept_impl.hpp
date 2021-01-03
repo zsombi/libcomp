@@ -25,97 +25,48 @@ constexpr bool is_valid_trackable_arg = (
             is_shared_ptr_v<T>
             );
 
-struct PtrTracker : AbstractTracker
+struct PtrTracker final : AbstractTracker
 {
     Tracker* trackable = nullptr;
     explicit PtrTracker(Tracker* trackable)
         : trackable(trackable)
     {
     }
-    void track(SlotPtr slot) override
+    void track(SlotPtr slot)
     {
         trackable->track(slot);
     }
-    void untrack(SlotPtr slot) override
+    void untrack(SlotPtr slot)
     {
         trackable->untrack(slot);
     }
-    bool retain() override
+    bool isValid() const
     {
-        if (!trackable)
-        {
-            return false;
-        }
-        return trackable->retain();
-    }
-    bool release() override
-    {
-        if (!trackable)
-        {
-            return true;
-        }
-        return trackable->release();
+        return true;
     }
 };
 
 template <class Type>
-struct WeakPtrTracker : AbstractTracker
+struct WeakPtrTracker final : AbstractTracker
 {
     weak_ptr<Type> trackable;
-    shared_ptr<Type> locked;
     explicit WeakPtrTracker(weak_ptr<Type> trackable)
         : trackable(trackable)
     {
     }
-    ~WeakPtrTracker()
+    void track(SlotPtr)
     {
-        trackable.reset();
     }
-    bool retain() override
+    void untrack(SlotPtr)
     {
-        locked = trackable.lock();
-        return locked != nullptr;
     }
-    bool release() override
+    bool isValid() const
     {
-        locked.reset();
-        return trackable.use_count() == 0;
+        return trackable.lock() != nullptr;
     }
 };
 
 } // noname
-
-
-template <class SlotType, bool DisconnectOnRelease>
-Slot::ScopeRetain<SlotType, DisconnectOnRelease>::ScopeRetain(SlotType& slot)
-    : m_slot(slot)
-{
-    m_lastLocked = find_if(m_slot.m_trackers, [](auto& tracker) { return !tracker->retain(); });
-}
-
-template <class SlotType, bool DisconnectOnRelease>
-Slot::ScopeRetain<SlotType, DisconnectOnRelease>::~ScopeRetain()
-{
-    auto dirty = false;
-    auto release = [&dirty](auto& tracker)
-    {
-        auto released = tracker->release();
-        dirty |= released;
-        return released;
-    };
-    if constexpr (DisconnectOnRelease)
-    {
-        erase_if(m_slot.m_trackers, release);
-        if (dirty)
-        {
-            m_slot.disconnect();
-        }
-    }
-    else
-    {
-        for_each(m_slot.m_trackers.begin(), m_lastLocked, release);
-    }
-}
 
 
 template <typename TrackerType>
@@ -133,7 +84,6 @@ void Slot::bind(TrackerType tracker)
     {
         using Type = typename pointer_traits<TrackerType>::element_type;
         auto _tracker = make_unique<WeakPtrTracker<Type>>(tracker);
-        _tracker->track(shared_from_this());
         m_trackers.insert(m_trackers.begin(), move(_tracker));
     }
 }
@@ -143,12 +93,6 @@ template <typename ReturnType, typename... Arguments>
 ReturnType SlotImpl<ReturnType, Arguments...>::activate(Arguments&&... args)
 {
     if (!isConnected())
-    {
-        throw bad_slot();
-    }
-
-    ScopeRetain<Slot, true> retain(*this);
-    if (!retain)
     {
         throw bad_slot();
     }
@@ -172,6 +116,6 @@ Connection& Connection::bind(Trackers... trackers)
     return *this;
 }
 
-}
+} // namespace sywu
 
 #endif // SYWU_CONNECTION_IMPL_HPP

@@ -16,21 +16,18 @@ class Slot;
 using SlotPtr = shared_ptr<Slot>;
 using SlotWeakPtr = weak_ptr<Slot>;
 
+/// Tracker interface.
 struct SYWU_API AbstractTracker
 {
+    /// Destructor.
     virtual ~AbstractTracker() = default;
     /// Attaches a slot to a tracker.
-    virtual void track(SlotPtr)
-    {
-    }
+    virtual void track(SlotPtr) = 0;
     /// Detaches a slot from a tracker.
-    virtual void untrack(SlotPtr)
-    {
-    }
-    /// Retains the tracker. If the retain succeeds, returns true, otherwise false.
-    virtual bool retain() = 0;
-    /// Releases the tracker. If the tracker can be deleted, returns true, otherwise false..
-    virtual bool release() = 0;
+    virtual void untrack(SlotPtr) = 0;
+    /// Returns the valid state of a tracker. A tracker is valid when it tracks a valid object.
+    /// \return If the tracker is valid, returns \e true, otherwise \e false.
+    virtual bool isValid() const = 0;
 };
 
 /// The Slot holds the invocable connected to a signal. The slot is a function, a function object, a method
@@ -54,12 +51,12 @@ public:
 
         try
         {
-            ScopeRetain<const Slot, false> track(*this);
-            if (!track)
+            auto isTrackerValid = [](auto& tracker)
             {
-                return false;
-            }
-            return true;
+                return !tracker->isValid();
+            };
+            auto it = find_if(m_trackers, isTrackerValid);
+            return (it == m_trackers.cend());
         }
         catch (...)
         {
@@ -97,19 +94,6 @@ protected:
     /// The container with the binded trackers.
     using TrackerPtr = unique_ptr<AbstractTracker>;
     using TrackersContainer = vector<TrackerPtr>;
-
-    template <class SlotType, bool DisconnectOnRelease = false>
-    struct ScopeRetain
-    {
-        SlotType& m_slot;
-        TrackersContainer::const_iterator m_lastLocked;
-        ScopeRetain(SlotType& slot);
-        ~ScopeRetain();
-        operator bool () const
-        {
-            return m_lastLocked == m_slot.m_trackers.end();
-        }
-    };
 
     /// Constructor.
     explicit Slot() = default;
@@ -194,46 +178,15 @@ struct ActiveConnection
     static inline Connection connection;
 };
 
-/// To track the lifetime of a connection based on an arbitrary object that is not a smart pointer, use this class.
-/// You can use this class as a base class
+/// To track the lifetime of a connection based on an arbitrary object that is not a smart pointer,
+/// use this class. The class disconnects all tracked slots on destruction.
 class SYWU_API Tracker : public AbstractTracker
 {
-    friend void intrusive_ptr_add_ref(Tracker* object)
-    {
-        object->retain();
-    }
-    friend void intrusive_ptr_release(Tracker* object)
-    {
-        if (object->release())
-        {
-            delete object;
-        }
-    }
-
 public:
-    /// Constructor.
-    explicit Tracker() = default;
-
     /// Destructor.
     ~Tracker()
     {
         disconnectTrackedSlots();
-        m_refCount = 0;
-    }
-
-    /// Retains the trackable.
-    bool retain() override
-    {
-        ++m_refCount;
-        return m_refCount.load() > 0;
-    }
-
-    /// Releases the trackable.
-    /// \returns If the object should be released, returns true.
-    bool release() override
-    {
-        --m_refCount;
-        return (m_refCount <= 0);
     }
 
     /// Attaches a \a slot to the trackable.
@@ -249,6 +202,9 @@ public:
     }
 
 protected:
+    /// Constructor.
+    explicit Tracker() = default;
+
     /// Disconnects the attached slots. Call this method if you want to disconnect from the attached slot
     /// earlier than at the trackable destruction time.
     void disconnectTrackedSlots()
@@ -263,8 +219,11 @@ protected:
     }
 
 private:
+    bool isValid() const final
+    {
+        return true;
+    }
     vector<Connection> m_trackedSlots;
-    atomic_int m_refCount = 0;
 };
 
 /********************************************************************************
