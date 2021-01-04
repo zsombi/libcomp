@@ -15,11 +15,9 @@ namespace sywu
 namespace
 {
 
-template <typename FunctionType, typename ReturnType, typename... Arguments>
-class SYWU_TEMPLATE_API FunctionSlot final : public SlotImpl<ReturnType, Arguments...>
+template <typename FunctionType, typename LockType, typename ReturnType, typename... Arguments>
+class SYWU_TEMPLATE_API FunctionSlot final : public SlotConcept<LockType, ReturnType, Arguments...>
 {
-    using Base = SlotImpl<ReturnType, Arguments...>;
-
     ReturnType activateOverride(Arguments&&... args) override
     {
         return invoke(m_function, forward<Arguments>(args)...);
@@ -35,11 +33,9 @@ private:
     FunctionType m_function;
 };
 
-template <class TargetObject, typename ReturnType, typename... Arguments>
-class SYWU_TEMPLATE_API MethodSlot final : public SlotImpl<ReturnType, Arguments...>
+template <class TargetObject, typename LockType, typename ReturnType, typename... Arguments>
+class SYWU_TEMPLATE_API MethodSlot final : public SlotConcept<LockType, ReturnType, Arguments...>
 {
-    using Base = SlotImpl<ReturnType, Arguments...>;
-
     ReturnType activateOverride(Arguments&&... arguments) override
     {
         auto slotHost = m_target.lock();
@@ -64,11 +60,9 @@ private:
     FunctionType m_function;
 };
 
-template <typename ReceiverSignal, typename ReturnType, typename... Arguments>
-class SYWU_TEMPLATE_API SignalSlot final : public SlotImpl<ReturnType, Arguments...>
+template <typename ReceiverSignal, typename LockType, typename ReturnType, typename... Arguments>
+class SYWU_TEMPLATE_API SignalSlot final : public SlotConcept<LockType, ReturnType, Arguments...>
 {
-    using Base = SlotImpl<ReturnType, Arguments...>;
-
     ReturnType activateOverride(Arguments&&... arguments) override
     {
         if constexpr (is_void_v<ReturnType>)
@@ -195,7 +189,7 @@ SignalConcept<LockType, ReturnType, Arguments...>::connect(shared_ptr<typename f
         is_same_v<ReturnType, SlotReturnType>,
         "Incompatible slot signature");
 
-    auto slot = make_shared<Slot, MethodSlot<Object, SlotReturnType, Arguments...>>(receiver, method);
+    auto slot = make_shared<SlotInterface, MethodSlot<Object, LockType, SlotReturnType, Arguments...>>(receiver, method);
     slot->bind(receiver);
     return addSlot(slot);
 }
@@ -211,20 +205,15 @@ SignalConcept<LockType, ReturnType, Arguments...>::connect(const FunctionType& f
         is_same_v<ReturnType, SlotReturnType>,
         "Incompatible slot signature");
 
-    auto slot = make_shared<Slot, FunctionSlot<FunctionType, SlotReturnType, Arguments...>>(function);
+    auto slot = make_shared<SlotInterface, FunctionSlot<FunctionType, LockType, SlotReturnType, Arguments...>>(function);
     return addSlot(slot);
 }
 
 template <class LockType, typename ReturnType, typename... Arguments>
-template <class RDerivedClass, typename RReturnType, class... RArguments>
-Connection SignalConcept<LockType, ReturnType, Arguments...>::connect(SignalConcept<RDerivedClass, RReturnType, RArguments...>& receiver)
+Connection SignalConcept<LockType, ReturnType, Arguments...>::connect(SignalConcept& receiver)
 {
-    using ReceiverSignal = SignalConcept<RDerivedClass, RReturnType, RArguments...>;
-    static_assert(
-        is_same_v<tuple<Arguments...>, tuple<RArguments...>>,
-        "incompatible signal signature");
-
-    auto slot = make_shared<Slot, SignalSlot<ReceiverSignal, RReturnType, Arguments...>>(receiver);
+    using ReceiverSignal = SignalConcept;
+    auto slot = make_shared<SlotInterface, SignalSlot<ReceiverSignal, LockType, ReturnType, Arguments...>>(receiver);
     receiver.track(slot);
     return addSlot(slot);
 }

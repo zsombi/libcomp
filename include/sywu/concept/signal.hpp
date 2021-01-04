@@ -12,15 +12,15 @@ namespace sywu
 {
 
 class Connection;
-class Slot;
-using SlotPtr = shared_ptr<Slot>;
-using SlotWeakPtr = weak_ptr<Slot>;
+class SlotInterface;
+using SlotPtr = shared_ptr<SlotInterface>;
+using SlotWeakPtr = weak_ptr<SlotInterface>;
 
 /// Tracker interface.
-struct SYWU_API AbstractTracker
+struct SYWU_API TrackerInterface
 {
     /// Destructor.
-    virtual ~AbstractTracker() = default;
+    virtual ~TrackerInterface() = default;
     /// Attaches a slot to a tracker.
     virtual void track(SlotPtr) = 0;
     /// Detaches a slot from a tracker.
@@ -29,59 +29,20 @@ struct SYWU_API AbstractTracker
     /// \return If the tracker is valid, returns \e true, otherwise \e false.
     virtual bool isValid() const = 0;
 };
+using TrackerPtr = unique_ptr<TrackerInterface>;
 
-/// The Slot holds the invocable connected to a signal. The slot is a function, a function object, a method
-/// or an other signal.
-class SYWU_API Slot : public Lockable<mutex>, public enable_shared_from_this<Slot>
+/// Interface for slots.
+class SYWU_API SlotInterface : public enable_shared_from_this<SlotInterface>
 {
-    SYWU_DISABLE_COPY_OR_MOVE(Slot);
-
 public:
-    /// Destructor.
-    virtual ~Slot() = default;
+    virtual ~SlotInterface() = default;
 
     /// Checks whether a slot is connected.
     /// \return If the slot is connected, returns \e true, otherwise returns \e false.
-    bool isConnected() const
-    {
-        if (!m_isConnected.load())
-        {
-            return false;
-        }
-
-        try
-        {
-            auto isTrackerValid = [](auto& tracker)
-            {
-                return !tracker->isValid();
-            };
-            auto it = find_if(m_trackers, isTrackerValid);
-            return (it == m_trackers.cend());
-        }
-        catch (...)
-        {
-            return false;
-        }
-    }
+    virtual bool isConnected() const = 0;
 
     /// Disconnects a slot.
-    void disconnect()
-    {
-        lock_guard lock(*this);
-        auto isConnected = m_isConnected.exchange(false);
-        if (!isConnected)
-        {
-            // Already disconnected.
-            return;
-        }
-
-        auto detacher = [this](auto& tracker)
-        {
-            tracker->untrack(shared_from_this());
-        };
-        for_each(m_trackers, detacher);
-        m_trackers.clear();
-    }
+    virtual void disconnect() = 0;
 
     /// Binds a tracker object to the slot. The tracker object is either a shared pointer, a weak pointer,
     /// or a Tracker derived object.
@@ -91,30 +52,11 @@ public:
     void bind(TrackerType tracker);
 
 protected:
-    /// The container with the binded trackers.
-    using TrackerPtr = unique_ptr<AbstractTracker>;
-    using TrackersContainer = vector<TrackerPtr>;
-
     /// Constructor.
-    explicit Slot() = default;
+    explicit SlotInterface() = default;
 
-    /// The binded trackers.
-    TrackersContainer m_trackers;
-
-    atomic_bool m_isConnected = true;
-};
-
-///The SlotImpl declares the activation of a slot.
-template <typename ReturnType, typename... Arguments>
-class SYWU_TEMPLATE_API SlotImpl : public Slot
-{
-public:
-    /// Activates the slot with the arguments passed, and returns the slot's return value.
-    ReturnType activate(Arguments&&...);
-
-protected:
-    /// To implement slot specific activation, override this method.
-    virtual ReturnType activateOverride(Arguments&&...) = 0;
+    /// Adds a tracker to the slot.
+    virtual void addTracker(TrackerPtr&&) = 0;
 };
 
 /// The Connection holds a slot connected to a signal. It is a token to a sender signal and a receiver
@@ -180,7 +122,7 @@ struct ActiveConnection
 
 /// To track the lifetime of a connection based on an arbitrary object that is not a smart pointer,
 /// use this class. The class disconnects all tracked slots on destruction.
-class SYWU_API Tracker : public AbstractTracker
+class SYWU_API Tracker : public TrackerInterface
 {
 public:
     /// Destructor.
@@ -227,16 +169,47 @@ private:
 };
 
 /********************************************************************************
- *
+ * Concepts
  */
 
-/// The SignalConcept defines the concept of the signals. Defined as a lockable for convenience, holds the
+/// The Slot holds the invocable connected to a signal. The slot is a function, a function object, a method
+/// or an other signal.
+template <typename LockType, typename ReturnType, typename... Arguments>
+class SYWU_TEMPLATE_API SlotConcept : public SlotInterface, public Lockable<mutex>
+{
+public:
+    /// Activates the slot with the arguments passed, and returns the slot's return value.
+    ReturnType activate(Arguments&&...);
+
+    /// Implements SlotInterface::isConnected().
+    bool isConnected() const final;
+
+    /// Implements SlotInterface::disconnect().
+    void disconnect() final;
+
+protected:
+    /// To implement slot specific activation, override this method.
+    virtual ReturnType activateOverride(Arguments&&...) = 0;
+
+    /// Implements SlotInterface::addTracker().
+    void addTracker(TrackerPtr&& tracker) final;
+
+private:
+    /// The container with the binded trackers.
+    using TrackersContainer = vector<TrackerPtr>;
+
+    /// The binded trackers.
+    TrackersContainer m_trackers;
+    atomic_bool m_isConnected = true;
+};
+
+/// The SignalConcept defines the concept of a signal. Defined as a lockable for convenience, holds the
 /// connections of the signal.
 template <class LockType, typename ReturnType, typename... Arguments>
 class SYWU_TEMPLATE_API SignalConcept : public Lockable<LockType>, public Tracker
 {
 public:
-    using SlotType = SlotImpl<ReturnType, Arguments...>;
+    using SlotType = SlotConcept<LockType, ReturnType, Arguments...>;
     using SlotTypePtr = shared_ptr<SlotType>;
     using SignalConceptType = SignalConcept<LockType, ReturnType, Arguments...>;
 
@@ -285,8 +258,7 @@ public:
     /// Creates a connection between this signal and a \a receiver signal.
     /// \param receiver The receiver signal connected to this signal.
     /// \return Returns the shared pointer to the connection.
-    template <class RDerivedClass, typename RReturnType, class... RArguments>
-    Connection connect(SignalConcept<RDerivedClass, RReturnType, RArguments...>& receiver);
+    Connection connect(SignalConcept& receiver);
 
     /// Disconnects the \a connection passed as argument.
     /// \param connection The connection to disconnect. The connection is invalidated and removed from the signal.
@@ -300,7 +272,7 @@ protected:
     FlagGuard m_emitGuard;
 
     /// The container with the connected slots.
-    using SlotContainer = vector<SlotPtr>;
+    using SlotContainer = vector<SlotTypePtr>;
     SlotContainer m_slots;
 
 private:

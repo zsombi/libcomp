@@ -313,9 +313,10 @@ TEST_F(SignalTest, deleteEmitterSignalFromSlot)
 
 TEST_F(SignalTest, deleteConnectedSignal)
 {
-    using SignalType = sywu::Signal<void()>;
-    auto sender = sywu::make_unique<SignalType>();
-    auto receiver = sywu::make_unique<SignalType>();
+    using SenderType = sywu::Signal<void()>;
+    using ReceiverType = sywu::Signal<void()>;
+    auto sender = sywu::make_unique<SenderType>();
+    auto receiver = sywu::make_unique<ReceiverType>();
 
     auto connection = sender->connect(*receiver);
     EXPECT_TRUE(connection);

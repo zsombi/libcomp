@@ -25,7 +25,7 @@ constexpr bool is_valid_trackable_arg = (
             is_shared_ptr_v<T>
             );
 
-struct PtrTracker final : AbstractTracker
+struct PtrTracker final : TrackerInterface
 {
     Tracker* trackable = nullptr;
     explicit PtrTracker(Tracker* trackable)
@@ -47,7 +47,7 @@ struct PtrTracker final : AbstractTracker
 };
 
 template <class Type>
-struct WeakPtrTracker final : AbstractTracker
+struct WeakPtrTracker final : TrackerInterface
 {
     weak_ptr<Type> trackable;
     explicit WeakPtrTracker(weak_ptr<Type> trackable)
@@ -70,7 +70,7 @@ struct WeakPtrTracker final : AbstractTracker
 
 
 template <typename TrackerType>
-void Slot::bind(TrackerType tracker)
+void SlotInterface::bind(TrackerType tracker)
 {
     static_assert (is_valid_trackable_arg<TrackerType>, "Invalid trackable");
 
@@ -78,19 +78,68 @@ void Slot::bind(TrackerType tracker)
     {
         auto _tracker = make_unique<PtrTracker>(tracker);
         _tracker->track(shared_from_this());
-        m_trackers.push_back(move(_tracker));
+        addTracker(move(_tracker));
     }
     else if constexpr (is_weak_ptr_v<TrackerType> || is_shared_ptr_v<TrackerType>)
     {
         using Type = typename pointer_traits<TrackerType>::element_type;
         auto _tracker = make_unique<WeakPtrTracker<Type>>(tracker);
-        m_trackers.insert(m_trackers.begin(), move(_tracker));
+        addTracker(move(_tracker));
     }
 }
 
 
-template <typename ReturnType, typename... Arguments>
-ReturnType SlotImpl<ReturnType, Arguments...>::activate(Arguments&&... args)
+template <typename LockType, typename ReturnType, typename... Arguments>
+void SlotConcept<LockType, ReturnType, Arguments...>::addTracker(TrackerPtr&& tracker)
+{
+    lock_guard lock(*this);
+    m_trackers.push_back(forward<TrackerPtr>(tracker));
+}
+
+template <typename LockType, typename ReturnType, typename... Arguments>
+bool SlotConcept<LockType, ReturnType, Arguments...>::isConnected() const
+{
+    if (!m_isConnected.load())
+    {
+        return false;
+    }
+
+    try
+    {
+        auto isTrackerValid = [](auto& tracker)
+        {
+            return !tracker->isValid();
+        };
+        auto it = find_if(m_trackers, isTrackerValid);
+        return (it == m_trackers.cend());
+    }
+    catch (...)
+    {
+        return false;
+    }
+}
+
+template <typename LockType, typename ReturnType, typename... Arguments>
+void SlotConcept<LockType, ReturnType, Arguments...>::disconnect()
+{
+    lock_guard lock(*this);
+    auto isConnected = m_isConnected.exchange(false);
+    if (!isConnected)
+    {
+        // Already disconnected.
+        return;
+    }
+
+    auto detacher = [this](auto& tracker)
+    {
+        tracker->untrack(shared_from_this());
+    };
+    for_each(m_trackers, detacher);
+    m_trackers.clear();
+}
+
+template <typename LockType, typename ReturnType, typename... Arguments>
+ReturnType SlotConcept<LockType, ReturnType, Arguments...>::activate(Arguments&&... args)
 {
     if (!isConnected())
     {
@@ -106,7 +155,6 @@ Connection& Connection::bind(Trackers... trackers)
     SYWU_ASSERT(*this);
     auto slot = m_slot.lock();
     SYWU_ASSERT(slot);
-    lock_guard lock(*slot);
 
     auto binder = [&slot](auto tracker)
     {
