@@ -14,6 +14,11 @@ public:
         ++methodCallCount;
     }
 
+    void autoDisconnect(sywu::Connection connection)
+    {
+        connection.disconnect();
+    }
+
     size_t methodCallCount = 0u;
 };
 
@@ -115,14 +120,54 @@ TEST_F(SignalTest, emitSignalThatActivatedTheSlot)
     EXPECT_EQ(1u, signal());
 }
 
+// It should be possible for an application developer to receive the connection that is associated to a slot as the first argument.
+TEST_F(SignalTest, slotWithConnection)
+{
+    using VoidSignalType = sywu::Signal<void()>;
+    using IntSignalType = sywu::Signal<void(int)>;
+
+    auto onVoidSignal = [](sywu::Connection connection)
+    {
+        connection.disconnect();
+    };
+    auto onIntSignal = [](sywu::Connection connection, int)
+    {
+        connection.disconnect();
+    };
+    VoidSignalType voidSignal;
+    IntSignalType intSignal;
+    auto voidConnection = voidSignal.connect(onVoidSignal);
+    EXPECT_TRUE(voidConnection);
+    auto intConnection = intSignal.connect(onIntSignal);
+    EXPECT_TRUE(intConnection);
+    voidSignal();
+    EXPECT_FALSE(voidConnection);
+    intSignal(10);
+    EXPECT_FALSE(intConnection);
+}
+
+// It should be possible for an application developer to receive the connection that is associated to a slot as the first argument.
+TEST_F(SignalTest, methodSlotWithConnection)
+{
+    using VoidSignalType = sywu::Signal<void()>;
+
+    VoidSignalType voidSignal;
+    auto object = sywu::make_shared<Object1>();
+
+    auto voidConnection = voidSignal.connect(object, &Object1::autoDisconnect);
+    EXPECT_TRUE(voidConnection);
+    voidSignal();
+    EXPECT_FALSE(voidConnection);
+}
+
 // The application developer can disconnect a connection from a signal using the signal disconnect function.
 TEST_F(SignalTest, disconnectWithSignal)
 {
     using SignalType = sywu::Signal<void()>;
     SignalType signal;
-    auto slot = []()
+    auto slot = [](sywu::Connection connection)
     {
-        sywu::ActiveConnection::connection.disconnect();
+        connection.disconnect();
     };
     auto connection = signal.connect(slot);
     EXPECT_TRUE(connection);

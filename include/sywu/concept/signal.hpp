@@ -111,15 +111,6 @@ private:
     SlotWeakPtr m_slot;
 };
 
-/// This class provides the token of the active connection. You can use the members of this class to get information
-/// about the emitter signal, and to manipulate the signal as well as to disconnect the slot.
-struct ActiveConnection
-{
-    /// The current connection. Use this member to access the connection that holds the connected
-    /// slot that is activated by the signal.
-    static inline Connection connection;
-};
-
 /// To track the lifetime of a connection based on an arbitrary object that is not a smart pointer,
 /// use this class. The class disconnects all tracked slots on destruction.
 class SYWU_API Tracker : public TrackerInterface

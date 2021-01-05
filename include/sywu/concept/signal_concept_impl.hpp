@@ -20,7 +20,18 @@ class SYWU_TEMPLATE_API FunctionSlot final : public SlotConcept<LockType, Return
 {
     ReturnType activateOverride(Arguments&&... args) override
     {
-        return invoke(m_function, forward<Arguments>(args)...);
+        if constexpr (function_traits<FunctionType>::arity == 0u)
+        {
+            return invoke(m_function, forward<Arguments>(args)...);
+        }
+        else if constexpr (is_same_v<Connection, typename function_traits<FunctionType>::template argument<0u>::type>)
+        {
+            return invoke(m_function, Connection(this->shared_from_this()), forward<Arguments>(args)...);
+        }
+        else
+        {
+            return invoke(m_function, forward<Arguments>(args)...);
+        }
     }
 
 public:
@@ -33,7 +44,7 @@ private:
     FunctionType m_function;
 };
 
-template <class TargetObject, typename LockType, typename ReturnType, typename... Arguments>
+template <class TargetObject, typename FunctionType, typename LockType, typename ReturnType, typename... Arguments>
 class SYWU_TEMPLATE_API MethodSlot final : public SlotConcept<LockType, ReturnType, Arguments...>
 {
     ReturnType activateOverride(Arguments&&... arguments) override
@@ -44,11 +55,21 @@ class SYWU_TEMPLATE_API MethodSlot final : public SlotConcept<LockType, ReturnTy
             throw bad_slot();
         }
 
-        return invoke(m_function, slotHost, forward<Arguments>(arguments)...);
+        if constexpr (function_traits<FunctionType>::arity == 0u)
+        {
+            return invoke(m_function, slotHost, forward<Arguments>(arguments)...);
+        }
+        else if constexpr (is_same_v<Connection, typename function_traits<FunctionType>::template argument<0u>::type>)
+        {
+            return invoke(m_function, slotHost, Connection(this->shared_from_this()), forward<Arguments>(arguments)...);
+        }
+        else
+        {
+            return invoke(m_function, slotHost, forward<Arguments>(arguments)...);
+        }
     }
 
 public:
-    using FunctionType = ReturnType(TargetObject::*)(Arguments...);
     explicit MethodSlot(shared_ptr<TargetObject> target, const FunctionType& function)
         : m_target(target)
         , m_function(function)
@@ -83,20 +104,6 @@ public:
 
 private:
     ReceiverSignal* m_receiver = nullptr;
-};
-
-struct ConnectionSwapper
-{
-    Connection previousConnection;
-    explicit ConnectionSwapper(SlotPtr slot)
-        : previousConnection(ActiveConnection::connection)
-    {
-        ActiveConnection::connection = Connection(slot);
-    }
-    ~ConnectionSwapper()
-    {
-        ActiveConnection::connection = previousConnection;
-    }
 };
 
 } // namespace noname
@@ -146,7 +153,6 @@ size_t SignalConcept<LockType, ReturnType, Arguments...>::operator()(Arguments..
                 // The slot is already disconnected from the signal, most likely due to this signal deletion.
                 continue;
             }
-            ConnectionSwapper backupConnection(slot);
             relock_guard relock(*slot);
             static_pointer_cast<SlotType>(slot)->activate(forward<Arguments>(arguments)...);
             ++count;
@@ -185,11 +191,11 @@ SignalConcept<LockType, ReturnType, Arguments...>::connect(shared_ptr<typename f
     using SlotReturnType = typename function_traits<FunctionType>::return_type;
 
     static_assert(
-        function_traits<FunctionType>::template is_same_args<Arguments...> &&
+        (function_traits<FunctionType>::template is_same_args<Arguments...> || function_traits<FunctionType>::template is_same_args<Connection, Arguments...>) &&
         is_same_v<ReturnType, SlotReturnType>,
         "Incompatible slot signature");
 
-    auto slot = make_shared<SlotInterface, MethodSlot<Object, LockType, SlotReturnType, Arguments...>>(receiver, method);
+    auto slot = make_shared<SlotInterface, MethodSlot<Object, FunctionType, LockType, SlotReturnType, Arguments...>>(receiver, method);
     slot->bind(receiver);
     return addSlot(slot);
 }
@@ -201,7 +207,7 @@ SignalConcept<LockType, ReturnType, Arguments...>::connect(const FunctionType& f
 {
     using SlotReturnType = typename function_traits<FunctionType>::return_type;
     static_assert(
-        function_traits<FunctionType>::template is_same_args<Arguments...> &&
+        (function_traits<FunctionType>::template is_same_args<Arguments...> || function_traits<FunctionType>::template is_same_args<Connection, Arguments...>) &&
         is_same_v<ReturnType, SlotReturnType>,
         "Incompatible slot signature");
 
