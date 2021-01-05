@@ -1,45 +1,12 @@
-#ifndef SYWU_TYPE_TRAITS_HPP
-#define SYWU_TYPE_TRAITS_HPP
+#ifndef SYWU_FUNCTION_TRAITS_HPP
+#define SYWU_FUNCTION_TRAITS_HPP
 
-#include <array>
-#include <cstddef>
-#include <tuple>
-#include <vector>
+#include <sywu/wrap/tuple.hpp>
+#include <sywu/wrap/type_traits.hpp>
 
-namespace traits
+namespace sywu
 {
 
-template <typename T>
-struct remove_cvref
-{
-    typedef std::remove_const_t<std::remove_reference_t<T>> type;
-};
-template <typename T> using remove_cvref_t = typename remove_cvref<T>::type;
-
-
-/// Detect std::weak_ptr
-template <typename T, typename = void>
-struct is_weak_ptr : std::false_type {};
-
-template <typename T>
-struct is_weak_ptr<T, std::void_t<decltype(std::declval<T>().expired()), decltype(std::declval<T>().lock()), decltype(std::declval<T>().reset())>> : std::true_type {};
-
-template <typename T>
-constexpr bool is_weak_ptr_v = is_weak_ptr<T>::value;
-
-/// Detect std::shared_ptr
-template <typename T, typename = void>
-struct is_shared_ptr : std::false_type {};
-
-template <typename T>
-struct is_shared_ptr<T, std::void_t<decltype(std::declval<T>().operator*()), decltype(std::declval<T>().operator->())>> : std::true_type {};
-
-template <typename T>
-constexpr bool is_shared_ptr_v = is_shared_ptr<T>::value;
-
-
-/// \name Function traits
-/// \{
 enum FunctionType
 {
     /// Specifies an invalid function.
@@ -59,13 +26,6 @@ struct function_traits : public function_traits<decltype(&Function::operator())>
     static constexpr int type = FunctionType::Functor;
 };
 
-/// Tests a function for
-template <typename Function>
-struct is_lambda
-{
-    static constexpr bool value = function_traits<Function>::type == FunctionType::Functor;
-};
-
 /// Method traits.
 template <class TObject, typename TRet, typename... Args>
 struct function_traits<TRet(TObject::*)(Args...)>
@@ -82,14 +42,11 @@ struct function_traits<TRet(TObject::*)(Args...)>
     struct argument
     {
         static_assert(N < arity, "error: invalid parameter index.");
-        using type = typename std::tuple_element<N, std::tuple<Args...>>::type;
+        using type = typename tuple_element<N, tuple<Args...>>::type;
     };
 
     template <typename... TestArgs>
-    struct test_arguments
-    {
-        static constexpr bool value = std::is_same_v<std::tuple<Args...>, std::tuple<TestArgs...>>;
-    };
+    static constexpr bool is_same_args = is_same_v<tuple<Args...>, tuple<TestArgs...>>;
 };
 
 /// Const method traits.
@@ -108,14 +65,11 @@ struct function_traits<TRet(TObject::*)(Args...) const>
     struct argument
     {
         static_assert(N < arity, "error: invalid parameter index.");
-        using type = typename std::tuple_element<N, std::tuple<Args...>>::type;
+        using type = typename tuple_element<N, tuple<Args...>>::type;
     };
 
     template <typename... TestArgs>
-    struct test_arguments
-    {
-        static constexpr bool value = std::is_same_v<std::tuple<Args...>, std::tuple<TestArgs...>>;
-    };
+    static constexpr bool is_same_args = is_same_v<tuple<Args...>, tuple<TestArgs...>>;
 };
 
 /// Function and static member function traits.
@@ -133,18 +87,13 @@ struct function_traits<TRet(*)(Args...)>
     struct argument
     {
         static_assert(N < arity, "error: invalid parameter index.");
-        using type = typename std::tuple_element<N, std::tuple<Args...>>::type;
+        using type = typename tuple_element<N, tuple<Args...>>::type;
     };
 
     template <typename... TestArgs>
-    struct test_arguments
-    {
-        static constexpr bool value = std::is_same_v<std::tuple<Args...>, std::tuple<TestArgs...>>;
-    };
+    static constexpr bool is_same_args = is_same_v<tuple<Args...>, tuple<TestArgs...>>;
 };
 
-/// \}
+} // namespace sywu
 
-} // namespace traits
-
-#endif // SYWU_TYPE_TRAITS_HPP
+#endif // SYWU_FUNCTION_TRAITS_HPP

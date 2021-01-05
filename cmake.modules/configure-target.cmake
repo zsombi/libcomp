@@ -1,10 +1,12 @@
 include(configure-platform)
 
+option(SYWU_THREAD_SAFE "Build with threads safe." OFF)
+
 # local function, configure common options
 macro(__common_config arg_target)
     # compile defs
     if (CONFIG_ENABLE_LOGS)
-        target_compile_definitions(${arg_target} PUBLIC CONFIG_ENABLE_LOGS)
+        target_compile_definitions(${arg_target} PUBLIC SYWU_CONFIG_ENABLE_LOGS)
     endif()
 
     if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
@@ -12,15 +14,20 @@ macro(__common_config arg_target)
     endif()
 
     if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
-        target_compile_definitions(${arg_target} PUBLIC CONFIG_HOST_LINUX)
+        target_compile_definitions(${arg_target} PUBLIC SYWU_CONFIG_HOST_LINUX)
     endif()
 
     if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
-        target_compile_definitions(${arg_target} PUBLIC CONFIG_HOST_MACOSX)
+        target_compile_definitions(${arg_target} PUBLIC SYWU_CONFIG_HOST_MACOSX)
+    endif()
+
+    if (SYWU_THREAD_SAFE)
+        target_compile_definitions(${arg_target} PUBLIC SYWU_CONFIG_THREAD_ENABLED)
+        target_compile_options(${arg_target} PUBLIC -pthread)
     endif()
 
     # compile options
-    target_compile_options(${arg_target} PUBLIC -std=c++17 -Werror -Wall -W -fPIC -pthread)
+    target_compile_options(${arg_target} PUBLIC -std=c++17 -Werror -Wall -W -fPIC)
 
     if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
         target_compile_options(${arg_target} PUBLIC -stdlib=libc++ -Winconsistent-missing-override)

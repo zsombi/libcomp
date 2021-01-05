@@ -6,12 +6,17 @@ template class sywu::Signal<void(int)>;
 template class sywu::Signal<void(int&)>;
 template class sywu::Signal<void(int, std::string)>;
 
-class Object1 : public std::enable_shared_from_this<Object1>
+class Object1 : public sywu::enable_shared_from_this<Object1>
 {
 public:
     void methodWithNoArg()
     {
         ++methodCallCount;
+    }
+
+    void autoDisconnect(sywu::Connection connection)
+    {
+        connection.disconnect();
     }
 
     size_t methodCallCount = 0u;
@@ -57,7 +62,7 @@ TEST_F(SignalTest, connectToFunctionWithRefArgument)
     EXPECT_TRUE(connection);
 
     int ivalue = 10;
-    signal(std::ref(ivalue));
+    signal(sywu::ref(ivalue));
     EXPECT_EQ(10, intValue);
     EXPECT_EQ(20, ivalue);
 }
@@ -66,7 +71,7 @@ TEST_F(SignalTest, connectToFunctionWithRefArgument)
 TEST_F(SignalTest, connectToMethod)
 {
     sywu::Signal<void()> signal;
-    auto object = std::make_shared<Object1>();
+    auto object = sywu::make_shared<Object1>();
     auto connection = signal.connect(object, &Object1::methodWithNoArg);
     EXPECT_TRUE(connection);
 
@@ -115,29 +120,54 @@ TEST_F(SignalTest, emitSignalThatActivatedTheSlot)
     EXPECT_EQ(1u, signal());
 }
 
-// The application developer can disconnect a connection from a signal through its disconnect function.
-TEST_F(SignalTest, disconnectWithConnection)
+// It should be possible for an application developer to receive the connection that is associated to a slot as the first argument.
+TEST_F(SignalTest, slotWithConnection)
 {
-    sywu::Signal<void()> signal;
-    auto slot = []()
+    using VoidSignalType = sywu::Signal<void()>;
+    using IntSignalType = sywu::Signal<void(int)>;
+
+    auto onVoidSignal = [](sywu::Connection connection)
     {
-        sywu::SignalConcept::currentConnection.disconnect();
+        connection.disconnect();
     };
-    auto connection = signal.connect(slot);
-    EXPECT_TRUE(connection);
-    EXPECT_EQ(1u, signal());
-    EXPECT_FALSE(connection);
-    EXPECT_EQ(0u, signal());
+    auto onIntSignal = [](sywu::Connection connection, int)
+    {
+        connection.disconnect();
+    };
+    VoidSignalType voidSignal;
+    IntSignalType intSignal;
+    auto voidConnection = voidSignal.connect(onVoidSignal);
+    EXPECT_TRUE(voidConnection);
+    auto intConnection = intSignal.connect(onIntSignal);
+    EXPECT_TRUE(intConnection);
+    voidSignal();
+    EXPECT_FALSE(voidConnection);
+    intSignal(10);
+    EXPECT_FALSE(intConnection);
 }
 
-// The application developer can disconnect a connection from a signal using the signal dicsonnect function.
+// It should be possible for an application developer to receive the connection that is associated to a slot as the first argument.
+TEST_F(SignalTest, methodSlotWithConnection)
+{
+    using VoidSignalType = sywu::Signal<void()>;
+
+    VoidSignalType voidSignal;
+    auto object = sywu::make_shared<Object1>();
+
+    auto voidConnection = voidSignal.connect(object, &Object1::autoDisconnect);
+    EXPECT_TRUE(voidConnection);
+    voidSignal();
+    EXPECT_FALSE(voidConnection);
+}
+
+// The application developer can disconnect a connection from a signal using the signal disconnect function.
 TEST_F(SignalTest, disconnectWithSignal)
 {
     using SignalType = sywu::Signal<void()>;
     SignalType signal;
-    auto slot = []()
+    auto slot = [](sywu::Connection connection)
     {
-        sywu::SignalConcept::currentConnection.getSender<SignalType>()->disconnect(sywu::SignalConcept::currentConnection);
+        connection.disconnect();
     };
     auto connection = signal.connect(slot);
     EXPECT_TRUE(connection);
@@ -161,7 +191,7 @@ TEST_F(SignalTest, connectFunctionManyTimes)
 TEST_F(SignalTest, connectMethodManyTimes)
 {
     sywu::Signal<void()> signal;
-    auto object = std::make_shared<Object1>();
+    auto object = sywu::make_shared<Object1>();
     signal.connect(object, &Object1::methodWithNoArg);
     signal.connect(object, &Object1::methodWithNoArg);
     signal.connect(object, &Object1::methodWithNoArg);
@@ -188,9 +218,9 @@ TEST_F(SignalTest, connectToTheInvokingSignal)
     using SignalType = sywu::Signal<void()>;
     SignalType signal;
 
-    auto slot = []()
+    auto slot = [&signal]()
     {
-        sywu::SignalConcept::currentConnection.getSender<SignalType>()->connect(&function);
+        signal.connect(&function);
     };
     signal.connect(slot);
     EXPECT_EQ(1, signal());
@@ -213,16 +243,17 @@ TEST_F(SignalTest, blockSignal)
     EXPECT_EQ(3, signal());
 }
 
-// The application developer can block the signal from a slot.
+// The application developer can block the signal from a slot. Blocking the signal from the slot does not affect the
+// active emit loop of the signal.
 TEST_F(SignalTest, blockSignalFromSlot)
 {
     using SignalType = sywu::Signal<void()>;
     SignalType signal;
     signal.connect([](){});
-    signal.connect([](){ sywu::SignalConcept::currentConnection.getSender()->setBlocked(true); });
+    signal.connect([&signal](){ signal.setBlocked(true); });
     signal.connect([](){});
 
-    EXPECT_EQ(2, signal());
+    EXPECT_EQ(3, signal());
     EXPECT_EQ(0, signal());
 }
 
@@ -233,9 +264,9 @@ TEST_F(SignalTest, connectionFromSlotGetsActivatedNextTime)
     using SignalType = sywu::Signal<void()>;
     SignalType signal;
 
-    auto slot = []()
+    auto slot = [&signal]()
     {
-        sywu::SignalConcept::currentConnection.getSender<SignalType>()->connect(&function);
+        signal.connect(&function);
     };
     signal.connect(slot);
     EXPECT_EQ(1, signal());
@@ -254,7 +285,8 @@ TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted)
     SignalType signal2;
     SignalType signal3;
 
-    auto object = std::make_shared<Object1>();
+    auto object = sywu::make_shared<Object1>();
+    auto weakObject = sywu::weak_ptr<Object1>(object);
     auto connection1 = signal1.connect(object, &Object1::methodWithNoArg);
     auto connection2 = signal2.connect(object, &Object1::methodWithNoArg);
     auto connection3 = signal3.connect(object, &Object1::methodWithNoArg);
@@ -263,7 +295,9 @@ TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted)
         object.reset();
     };
     signal1.connect(objectDeleter);
+    EXPECT_EQ(1, weakObject.use_count());
     signal1();
+    EXPECT_EQ(0, weakObject.use_count());
     EXPECT_FALSE(connection1);
     EXPECT_FALSE(connection2);
     EXPECT_FALSE(connection3);
@@ -275,7 +309,7 @@ TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted_noConenctionHolding
     SignalType signal2;
     SignalType signal3;
 
-    auto object = std::make_shared<Object1>();
+    auto object = sywu::make_shared<Object1>();
     signal1.connect(object, &Object1::methodWithNoArg);
     signal2.connect(object, &Object1::methodWithNoArg);
     signal3.connect(object, &Object1::methodWithNoArg);
@@ -288,13 +322,24 @@ TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted_noConenctionHolding
     EXPECT_EQ(0, signal2());
     EXPECT_EQ(0, signal3());
 }
+TEST_F(SignalTest, receiverObjectDeleted)
+{
+    using SignalType = sywu::Signal<void()>;
+    SignalType signal;
+    auto object = sywu::make_shared<Object1>();
+    signal.connect(object, &Object1::methodWithNoArg);
+
+    EXPECT_EQ(1, signal());
+    object.reset();
+    EXPECT_EQ(0, signal());
+}
 
 // When the signal is destroyed in a slot connected to that signal, it invalidates the connections of the signal.
 // The connections following the slot that destroys the signal are not processed.
 TEST_F(SignalTest, deleteEmitterSignalFromSlot)
 {
     using SignalType = sywu::Signal<void()>;
-    auto signal = std::make_unique<SignalType>();
+    auto signal = sywu::make_unique<SignalType>();
 
     auto killSignal = [&signal]()
     {
@@ -309,6 +354,21 @@ TEST_F(SignalTest, deleteEmitterSignalFromSlot)
     EXPECT_FALSE(connection1);
     EXPECT_FALSE(connection2);
     EXPECT_FALSE(connection3);
+}
+
+TEST_F(SignalTest, deleteConnectedSignal)
+{
+    using SenderType = sywu::Signal<void()>;
+    using ReceiverType = sywu::Signal<void()>;
+    auto sender = sywu::make_unique<SenderType>();
+    auto receiver = sywu::make_unique<ReceiverType>();
+
+    auto connection = sender->connect(*receiver);
+    EXPECT_TRUE(connection);
+    EXPECT_EQ(1, (*sender)());
+    receiver.reset();
+    EXPECT_FALSE(connection);
+    EXPECT_EQ(0, (*sender)());
 }
 
 struct Functor
@@ -330,4 +390,64 @@ TEST_F(SignalTest, connectToFunctor)
     int value = 10;
     EXPECT_EQ(1, signal(value));
     EXPECT_EQ(100, value);
+}
+
+namespace
+{
+
+class Base;
+using BasePtr = sywu::shared_ptr<Base>;
+using BaseWeakPtr = sywu::weak_ptr<Base>;
+
+class Base : public NotifyDestroyed<Base>
+{
+public:
+    BaseWeakPtr m_pair;
+    explicit Base() = default;
+
+    void setPair(BasePtr pair)
+    {
+        m_pair = pair;
+        pair->destroyed.connect(shared_from_this(), &Base::onPairDestroyed);
+    }
+
+    void onPairDestroyed()
+    {
+        m_pair.reset();
+    }
+};
+
+class Client : public Base
+{
+public:
+    explicit Client() = default;
+};
+
+class Server : public Base
+{
+public:
+    sywu::MemberSignal<Server, void()> closed{*this};
+    explicit Server() = default;
+};
+
+}
+
+TEST_F(SignalTest, pairNotifyDestruction)
+{
+    auto server = sywu::make_shared<Base, Server>();
+    auto client = sywu::make_shared<Base, Client>();
+    EXPECT_EQ(1, server.use_count());
+    EXPECT_EQ(0, server->m_pair.use_count());
+
+    server->setPair(client);
+    EXPECT_EQ(1, server.use_count());
+    EXPECT_EQ(1, server->m_pair.use_count());
+
+    client->setPair(server);
+    EXPECT_EQ(1, server.use_count());
+    EXPECT_EQ(1, server->m_pair.use_count());
+
+    client.reset();
+    EXPECT_EQ(1, server.use_count());
+    EXPECT_EQ(0, server->m_pair.use_count());
 }
