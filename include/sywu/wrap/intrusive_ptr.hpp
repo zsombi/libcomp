@@ -8,6 +8,8 @@
 #endif
 
 #include <sywu/wrap/atomic.hpp>
+#include <sywu/wrap/exception.hpp>
+#include <sywu/wrap/type_traits.hpp>
 #include <sywu/wrap/utility.hpp>
 
 namespace sywu
@@ -129,24 +131,45 @@ private:
 
 #endif
 
-class enable_intrusive_ptr;
+/// Detect intrusive_ptr
+template <typename T, typename = void>
+struct is_intrusive_ptr : false_type {};
 
 template <typename T>
-void intrusive_ptr_add_ref(T* ptr)
+struct is_intrusive_ptr<T, enable_if_t<is_same_v<decay_t<T>, intrusive_ptr<typename decay_t<T>::element_type>>>> : true_type {};
+
+template <typename T>
+constexpr bool is_intrusive_ptr_v = is_intrusive_ptr<T>::value;
+
+/// Template fuction to increase the reference counter of a reference counted \a pointer. The pointer must have an
+/// \e m_refCount member that holds the reference count of the object.
+/// For convenience, derive your intrusive pointers from #enable_intrusive_ptr.
+///
+/// \tparam T The pointer type
+/// \param pointer The pointer for which to increase the reference counter.
+template <typename T>
+void intrusive_ptr_add_ref(T* pointer)
 {
-    ++ptr->m_refCount;
+    ++pointer->m_refCount;
 }
 
+/// Template fuction to decrease the reference counter of a reference counted \a pointer, and when that reaches 0, deletes
+/// the pointer. The pointer must have an \e m_refCount member that holds the reference count of the object.
+/// For convenience, derive your intrusive pointers from #enable_intrusive_ptr.
+///
+/// \tparam T The pointer type
+/// \param pointer The pointer for which to decrease the reference counter.
 template <typename T>
-void intrusive_ptr_release(T* ptr)
+void intrusive_ptr_release(T* pointer)
 {
-    if (--ptr->m_refCount == 0)
+    if (--pointer->m_refCount == 0)
     {
-        delete ptr;
+        delete pointer;
     }
 }
 
-/// Enables the use of intrusive pointers. Derive your class from this to use intrusive pointers.
+/// Enables the use of intrusive pointers. Derive your class from this to use intrusive pointers as connection trackers.
+
 class enable_intrusive_ptr
 {
     atomic_int m_refCount = 0;
@@ -156,14 +179,24 @@ class enable_intrusive_ptr
 public:
     /// Constructor.
     explicit enable_intrusive_ptr() = default;
+    /// Destructor.
+    ~enable_intrusive_ptr()
+    {
+        if (m_refCount)
+        {
+            terminate();
+        }
+    }
 
     /// Returns an intrusive pointer from this.
+    /// \tparam DerivedClass The derived class to create an intrusive ppointer from this object.
     /// \param addReference To increase the reference counter of the intrusive pointrer, pass \e true,
     ///        otherwise pass \e false as argument.
     /// \return The intrusive pointer from this.
     template <class DerivedClass>
     intrusive_ptr<DerivedClass> intrusive_from_this(bool addReference = true) const
     {
+        static_assert(is_base_of_v<enable_intrusive_ptr, DerivedClass>, "DerivedClass is not an intrusive pointer base.");
         return move(intrusive_ptr<DerivedClass>(this, addReference));
     }
 
@@ -178,6 +211,10 @@ protected:
 
 
 /// Utility function, creates an intrusive pointer.
+/// \tparam T The type from which to create the intrusive pointer.
+/// \tparam Arguments... The argument types to pass to the type \e T constructor.
+/// \param arguments The arguments to pass to the type \e T constructor.
+/// \return The intrusive_ptr<T> created.
 template <class T, typename... Arguments>
 intrusive_ptr<T> make_intrusive(Arguments&&... arguments)
 {

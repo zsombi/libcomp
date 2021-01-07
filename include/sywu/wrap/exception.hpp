@@ -8,7 +8,9 @@ namespace sywu
 {
 
 using std::exception;
+using std::terminate;
 
+/// Exception thrown when a slot that is not connected is activated.
 class SYWU_API bad_slot : public exception
 {
 public:

@@ -48,6 +48,8 @@ public:
     /// or a Tracker derived object.
     /// \tparam TrackerType The type of the tracker, a shared_ptr, weak_ptr, or a pointer to the Tracker
     ///         derived object.
+    /// \param tracker The tracker to bind to the slot.
+    /// \see Connection::bind()
     template <class TrackerType>
     void bind(TrackerType tracker);
 
@@ -95,10 +97,26 @@ public:
         return slot && slot->isConnected();
     }
 
-    /// Binds trackables to the slot.
-    /// \param trackables... The trackables to bind.
+    /// Binds trackers to the slot. Trackers are objects that are used in a slot connected to a signal. To make sure the
+    /// slot is only activated if all the objects used in the slot function are valid, bind trackers.
+    ///
+    /// A tracker is either
+    /// - a pointer to a class derived from Tracker; the pointer is either a raw pointer, a shared pointer or an intrusive
+    ///   pointer
+    /// - a shared or weak pointer of an arbitrar object.
+    ///
+    /// You can use the same tracker to track multiple slots. To disconnect the slots tracked by a tracker that is derived
+    /// from Tracker, call #Tracker::disconnectTrackedSlots(). Slots tracked by a shared pointer are disconnected only when
+    /// that shared pointer is deleted.
+    ///
+    /// To untrack a slot in all its trackers, disconnect that slot.
+    ///
+    /// \tparam Trackers The types of the trackers to bind.
+    /// \param trackers... The trackers to bind.
+    /// \return This connection.
+    /// \see SlotInterface::bind()
     template <class... Trackers>
-    Connection& bind(Trackers... trackables);
+    Connection& bind(Trackers... trackers);
 
     /// Returns the slot of the connection.
     /// \return The slot of the connection. If the connection is not valid, returns \e nullptr.
@@ -113,6 +131,8 @@ private:
 
 /// To track the lifetime of a connection based on an arbitrary object that is not a smart pointer,
 /// use this class. The class disconnects all tracked slots on destruction.
+/// You can bind trackers to a connection using the #Connection::bind() method, by passing the pointer
+/// to the Tracker object as argument of the method.
 class SYWU_API Tracker : public TrackerInterface
 {
 public:
@@ -134,10 +154,6 @@ public:
         erase_first(m_trackedSlots, Connection(slot));
     }
 
-protected:
-    /// Constructor.
-    explicit Tracker() = default;
-
     /// Disconnects the attached slots. Call this method if you want to disconnect from the attached slot
     /// earlier than at the trackable destruction time.
     void disconnectTrackedSlots()
@@ -151,7 +167,12 @@ protected:
         }
     }
 
+protected:
+    /// Constructor.
+    explicit Tracker() = default;
+
 private:
+    /// This is valid as long as it exists.
     bool isValid() const final
     {
         return true;
