@@ -196,8 +196,36 @@ TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_tracker)
     EXPECT_EQ(2, signal());
 }
 
-// The application developer should be able to destroy a tracker in the slot to shich the tracker is bount to.
-TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_intrusivePtrTrackable)
+// The application developer should be able to disconnect tracked slots in the slot to shich the tracker is bount to.
+TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_sharedTrackerPtr)
+{
+    using SignalType = sywu::Signal<void()>;
+    SignalType signal;
+    auto tracker1 = sywu::make_shared<Object>();
+    auto tracker2 = sywu::make_shared<IntrusiveTracker>();
+
+    auto deleter = [&tracker2]()
+    {
+        tracker2->disconnectTrackedSlots();
+        tracker2.reset();
+    };
+
+    // connect 3 slots
+    signal.connect([](){});
+    auto connection = signal.connect(deleter).bind(tracker1, tracker2);
+    signal.connect([](){}).bind(tracker2);
+    // The 3rd connection is disconnected by tracker2.
+    EXPECT_EQ(2, signal());
+    EXPECT_FALSE(tracker2);
+    // the other tracker is not destroyed.
+    EXPECT_TRUE(tracker1);
+    // The deleter slot is disconnected.
+    EXPECT_FALSE(connection);
+    EXPECT_EQ(1, signal());
+}
+
+// The application developer should be able to disconnect tracked slots in the slot to shich the tracker is bount to.
+TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_intrusiveTrackerPtr)
 {
     using SignalType = sywu::Signal<void()>;
     SignalType signal;
@@ -206,18 +234,19 @@ TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_intrusivePtrTrackab
 
     auto deleter = [&tracker2]()
     {
+        tracker2->disconnectTrackedSlots();
         tracker2.reset();
     };
 
     // connect 3 slots
     signal.connect([](){});
-    auto connection = signal.connect(deleter).bind(tracker1, tracker2.get());
-    signal.connect([](){});
-    EXPECT_EQ(3, signal());
+    auto connection = signal.connect(deleter).bind(tracker1, tracker2);
+    signal.connect([](){}).bind(tracker2);
+    EXPECT_EQ(2, signal());
     EXPECT_FALSE(tracker2);
     // the other tracker is not destroyed.
     EXPECT_TRUE(tracker1);
     // The deleter slot is disconnected.
     EXPECT_FALSE(connection);
-    EXPECT_EQ(2, signal());
+    EXPECT_EQ(1, signal());
 }

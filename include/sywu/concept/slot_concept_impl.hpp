@@ -18,9 +18,13 @@ template <typename T>
 constexpr bool is_trackable_pointer_v = is_pointer_v<T> && is_trackable_class_v<remove_pointer_t<T>>;
 
 template <typename T>
+constexpr bool is_intrusive_trackable_pointer_v = is_intrusive_ptr_v<T> && is_trackable_class_v<typename pointer_traits<T>::element_type>;
+
+template <typename T>
 constexpr bool is_valid_trackable_arg = (
             is_trackable_class_v<T> ||
             is_trackable_pointer_v<T> ||
+            is_intrusive_trackable_pointer_v<T> ||
             is_weak_ptr_v<T> ||
             is_shared_ptr_v<T>
             );
@@ -54,15 +58,47 @@ struct WeakPtrTracker final : TrackerInterface
         : trackable(trackable)
     {
     }
-    void track(SlotPtr)
+    void track(SlotPtr slot)
     {
+        SYWU_UNUSED(slot);
+        if constexpr (is_trackable_class_v<Type>)
+        {
+            trackable.lock()->track(slot);
+        }
     }
-    void untrack(SlotPtr)
+    void untrack(SlotPtr slot)
     {
+        SYWU_UNUSED(slot);
+        if constexpr (is_trackable_class_v<Type>)
+        {
+            trackable.lock()->untrack(slot);
+        }
     }
     bool isValid() const
     {
         return trackable.lock() != nullptr;
+    }
+};
+
+template <class Type>
+struct IntrusivePtrTracker final : TrackerInterface
+{
+    intrusive_ptr<Type> trackable;
+    explicit IntrusivePtrTracker(intrusive_ptr<Type> trackable)
+        : trackable(trackable)
+    {
+    }
+    void track(SlotPtr slot)
+    {
+        trackable->track(slot);
+    }
+    void untrack(SlotPtr slot)
+    {
+        trackable->untrack(slot);
+    }
+    bool isValid() const
+    {
+        return trackable;
     }
 };
 
@@ -84,6 +120,17 @@ void SlotInterface::bind(TrackerType tracker)
     {
         using Type = typename pointer_traits<TrackerType>::element_type;
         auto _tracker = make_unique<WeakPtrTracker<Type>>(tracker);
+        if constexpr (is_trackable_class_v<Type>)
+        {
+            _tracker->track(shared_from_this());
+        }
+        addTracker(move(_tracker));
+    }
+    else if constexpr (is_intrusive_ptr_v<TrackerType>)
+    {
+        using Type = typename pointer_traits<TrackerType>::element_type;
+        auto _tracker = make_unique<IntrusivePtrTracker<Type>>(tracker);
+        _tracker->track(shared_from_this());
         addTracker(move(_tracker));
     }
 }
