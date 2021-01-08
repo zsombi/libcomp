@@ -451,3 +451,61 @@ TEST_F(SignalTest, pairNotifyDestruction)
     EXPECT_EQ(1, server.use_count());
     EXPECT_EQ(0, server->m_pair.use_count());
 }
+
+class ContextEmit : public SignalTest
+{
+public:
+    sywu::Signal<int()> intSignal;
+
+    explicit ContextEmit()
+    {
+        auto onOne = []() -> int
+        {
+            return 1;
+        };
+        auto onTen = []() -> int
+        {
+            return 10;
+        };
+
+        intSignal.connect(onOne);
+        intSignal.connect(onTen);
+    }
+
+    class Accumulate : public sywu::Collector<Accumulate>
+    {
+    public:
+        void handleResult(sywu::Connection, int result)
+        {
+            results.push_back(result);
+        }
+        sywu::vector<int> results;
+    };
+    class Summ : public sywu::Collector<Summ>
+    {
+    public:
+        void handleResult(sywu::Connection, int result)
+        {
+            grandTotal += result;
+        }
+        int grandTotal = 0;
+    };
+};
+
+// The application developer should be able to use emit contexts to accumulate the results of the slots connected to a signal
+// that has a return value.
+TEST_F(ContextEmit, accumulateResults)
+{
+    auto context = intSignal.operator()<Accumulate>();
+    EXPECT_EQ(2, context.results.size());
+    EXPECT_EQ(1, context.results[0]);
+    EXPECT_EQ(10, context.results[1]);
+}
+
+// The application developer should be able to use emit contexts to summ the results of the slots connected to a signal
+// that has a return value.
+TEST_F(ContextEmit, summResults)
+{
+    auto context = intSignal.operator()<Summ>();
+    EXPECT_EQ(11, context.grandTotal);
+}

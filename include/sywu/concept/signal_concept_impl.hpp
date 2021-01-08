@@ -106,8 +106,43 @@ private:
     ReceiverSignal* m_receiver = nullptr;
 };
 
+template <class T, typename Enable = void>
+struct Context : public Collector<Context<T>>
+{
+    size_t callCount = 0u;
+    void handleResult(Connection)
+    {
+        ++callCount;
+    }
+};
+
+template <class T>
+struct Context<T, enable_if_t<!is_void_v<T>, void>> : public Collector<Context<T>>
+{
+    size_t callCount = 0u;
+    void handleResult(Connection, T)
+    {
+        ++callCount;
+    }
+};
+
 } // namespace noname
 
+template <class DerivedCollector>
+template <class SlotType, typename ReturnType, typename... Arguments>
+void Collector<DerivedCollector>::collect(SlotType& slot, Arguments&&... arguments)
+{
+    if constexpr (is_void_v<ReturnType>)
+    {
+        slot.activate(forward<Arguments>(arguments)...);
+        getSelf()->handleResult(Connection(slot.shared_from_this()));
+    }
+    else
+    {
+        auto result = slot.activate(forward<Arguments>(arguments)...);
+        getSelf()->handleResult(Connection(slot.shared_from_this()), result);
+    }
+}
 
 template <class LockType, typename ReturnType, typename... Arguments>
 SignalConcept<LockType, ReturnType, Arguments...>::~SignalConcept()
@@ -123,11 +158,14 @@ SignalConcept<LockType, ReturnType, Arguments...>::~SignalConcept()
 }
 
 template <class LockType, typename ReturnType, typename... Arguments>
-size_t SignalConcept<LockType, ReturnType, Arguments...>::operator()(Arguments... arguments)
+template <class Collector>
+Collector SignalConcept<LockType, ReturnType, Arguments...>::operator()(Arguments... arguments)
 {
+    auto context = Collector();
+
     if (isBlocked() || m_emitGuard.isLocked())
     {
-        return 0u;
+        return move(context);
     }
 
     lock_guard guard(m_emitGuard);
@@ -141,9 +179,9 @@ size_t SignalConcept<LockType, ReturnType, Arguments...>::operator()(Arguments..
         slots = m_slots;
     }
 
-    auto count = int(0);
-    for (auto& slot : slots)
+    for (auto& s : slots)
     {
+        auto slot = static_pointer_cast<SlotType>(s);
         lock_guard lock(*slot);
 
         try
@@ -154,8 +192,7 @@ size_t SignalConcept<LockType, ReturnType, Arguments...>::operator()(Arguments..
                 continue;
             }
             relock_guard relock(*slot);
-            static_pointer_cast<SlotType>(slot)->activate(forward<Arguments>(arguments)...);
-            ++count;
+            context.template collect<SlotType, ReturnType, Arguments...>(*slot, forward<Arguments>(arguments)...);
         }
         catch (const bad_weak_ptr&)
         {
@@ -169,7 +206,14 @@ size_t SignalConcept<LockType, ReturnType, Arguments...>::operator()(Arguments..
         }
     }
 
-    return count;
+    return move(context);
+}
+
+template <class LockType, typename ReturnType, typename... Arguments>
+size_t SignalConcept<LockType, ReturnType, Arguments...>::operator()(Arguments... arguments)
+{
+    auto context = operator()<Context<ReturnType>>(forward<Arguments>(arguments)...);
+    return context.callCount;
 }
 
 template <class LockType, typename ReturnType, typename... Arguments>

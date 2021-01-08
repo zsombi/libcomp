@@ -181,6 +181,33 @@ private:
 };
 
 /********************************************************************************
+ * Collectors
+ */
+/// Collectors are used with signals that have return type, and are used to collect the return values
+/// of the slots conmnected to the signal.
+///
+/// You can create collectors deriving from this template class, and implement a \e handleResult function
+/// with the following signature:
+/// - \e {void handleResult(Connection[, ReturnType [const&]])}
+/// where \e Connection is the connection to the slot, and \e ReturnType is the return type of the slot.
+/// You must specify the return type if the slot returns a non-void value.
+template <class DerivedCollector>
+class SYWU_TEMPLATE_API Collector
+{
+    DerivedCollector* getSelf()
+    {
+        return static_cast<DerivedCollector*>(this);
+    }
+
+public:
+    explicit Collector() = default;
+
+    /// Activates the slot and collects the return value of the slot. Your collector must implement
+    /// a \e handleResult function to collect the results of the activated slot.
+    template <class SlotType, typename ReturnType, typename... Arguments>
+    void collect(SlotType& slot, Arguments&&... arguments);
+};
+/********************************************************************************
  * Concepts
  */
 
@@ -243,9 +270,16 @@ public:
     }
 
     /// Activates the signal with the given arguments.
-    /// \param arguments... The variadic arguments passed.
+    /// \param arguments The variadic arguments passed.
     /// \return The number of connections invoked.
     size_t operator()(Arguments... arguments);
+
+    /// Activates the signal with a specific \a Collector. Returns the collected results gathered from the
+    /// activated slots by the collector type.
+    /// \tparam Collector The collector used in emit.
+    /// \param arguments The arguments to pass.
+    template <class Collector>
+    Collector operator()(Arguments... arguments);
 
     /// Adds a \a slot to the signal.
     /// \param slot The slot to add to the signal.
