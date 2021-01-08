@@ -188,9 +188,10 @@ private:
 ///
 /// You can create collectors deriving from this template class, and implement a \e handleResult function
 /// with the following signature:
-/// - \e {void handleResult(Connection[, ReturnType [const&]])}
+/// - \e {bool handleResult(Connection[, ReturnType [const&]])}
 /// where \e Connection is the connection to the slot, and \e ReturnType is the return type of the slot.
-/// You must specify the return type if the slot returns a non-void value.
+/// You must specify the return type if the slot returns a non-void value. To stop teh signal activation,
+/// return \e false, otherwise return \e true.
 template <class DerivedCollector>
 class SYWU_TEMPLATE_API Collector
 {
@@ -200,13 +201,56 @@ class SYWU_TEMPLATE_API Collector
     }
 
 public:
+    /// Constructor.
     explicit Collector() = default;
 
     /// Activates the slot and collects the return value of the slot. Your collector must implement
     /// a \e handleResult function to collect the results of the activated slot.
+    /// \tparam SlotType
+    /// \tparam ReturnType
+    /// \tparam Arguments
+    /// \param slot
+    /// \param arguments
+    /// \return If the collector succeeds, returns \e true, otherwise \e false. If the collector returns
+    /// \e false, the signal activation breaks.
     template <class SlotType, typename ReturnType, typename... Arguments>
-    void collect(SlotType& slot, Arguments&&... arguments);
+    bool collect(SlotType& slot, Arguments&&... arguments);
 };
+
+/// The default signal collector specialized for signals with void return type.
+template <class T, typename Enable = void>
+struct DefaultSignalCollector : public Collector<DefaultSignalCollector<T>>
+{
+    /// Returns the number of successful slot activations.
+    size_t size() const
+    {
+        return callCount;
+    }
+
+    /// Handles the result. Slots with void return type only have the connection as argument.
+    bool handleResult(Connection)
+    {
+        ++callCount;
+        return true;
+    }
+
+private:
+    size_t callCount = 0u;
+};
+
+/// The default signal collector specialized for signals with non-void return type.
+template <class T>
+struct DefaultSignalCollector<T, enable_if_t<!is_void_v<T>, void>> : public Collector<DefaultSignalCollector<T>>,
+                                                                     public vector<T>
+{
+    /// Handles the result.
+    bool handleResult(Connection, T result)
+    {
+        vector<T>::push_back(result);
+        return true;
+    }
+};
+
 /********************************************************************************
  * Concepts
  */
@@ -269,16 +313,11 @@ public:
         m_isBlocked = blocked;
     }
 
-    /// Activates the signal with the given arguments.
-    /// \param arguments The variadic arguments passed.
-    /// \return The number of connections invoked.
-    size_t operator()(Arguments... arguments);
-
     /// Activates the signal with a specific \a Collector. Returns the collected results gathered from the
     /// activated slots by the collector type.
     /// \tparam Collector The collector used in emit.
     /// \param arguments The arguments to pass.
-    template <class Collector>
+    template <class Collector = DefaultSignalCollector<ReturnType>>
     Collector operator()(Arguments... arguments);
 
     /// Adds a \a slot to the signal.

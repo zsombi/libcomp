@@ -17,11 +17,13 @@ MemberSignal<SignalHost, ReturnType(Arguments...)>::MemberSignal(SignalHost& sig
 }
 
 template <class SignalHost, typename ReturnType, typename... Arguments>
-size_t MemberSignal<SignalHost, ReturnType(Arguments...)>::operator()(Arguments... arguments)
+template <class Collector>
+Collector MemberSignal<SignalHost, ReturnType(Arguments...)>::operator()(Arguments... arguments)
 {
     auto lockedHost = m_host.shared_from_this();
     SYWU_ASSERT(lockedHost);
-    return BaseClass::operator()(forward<Arguments>(arguments)...);
+    auto collector = BaseClass::template operator()<Collector>(forward<Arguments>(arguments)...);
+    return move(collector);
 }
 
 } // namespace sywu

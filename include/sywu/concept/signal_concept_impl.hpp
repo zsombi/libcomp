@@ -130,17 +130,17 @@ struct Context<T, enable_if_t<!is_void_v<T>, void>> : public Collector<Context<T
 
 template <class DerivedCollector>
 template <class SlotType, typename ReturnType, typename... Arguments>
-void Collector<DerivedCollector>::collect(SlotType& slot, Arguments&&... arguments)
+bool Collector<DerivedCollector>::collect(SlotType& slot, Arguments&&... arguments)
 {
     if constexpr (is_void_v<ReturnType>)
     {
         slot.activate(forward<Arguments>(arguments)...);
-        getSelf()->handleResult(Connection(slot.shared_from_this()));
+        return getSelf()->handleResult(Connection(slot.shared_from_this()));
     }
     else
     {
         auto result = slot.activate(forward<Arguments>(arguments)...);
-        getSelf()->handleResult(Connection(slot.shared_from_this()), result);
+        return getSelf()->handleResult(Connection(slot.shared_from_this()), result);
     }
 }
 
@@ -192,7 +192,10 @@ Collector SignalConcept<LockType, ReturnType, Arguments...>::operator()(Argument
                 continue;
             }
             relock_guard relock(*slot);
-            context.template collect<SlotType, ReturnType, Arguments...>(*slot, forward<Arguments>(arguments)...);
+            if (!context.template collect<SlotType, ReturnType, Arguments...>(*slot, forward<Arguments>(arguments)...))
+            {
+                break;
+            }
         }
         catch (const bad_weak_ptr&)
         {
@@ -207,13 +210,6 @@ Collector SignalConcept<LockType, ReturnType, Arguments...>::operator()(Argument
     }
 
     return move(context);
-}
-
-template <class LockType, typename ReturnType, typename... Arguments>
-size_t SignalConcept<LockType, ReturnType, Arguments...>::operator()(Arguments... arguments)
-{
-    auto context = operator()<Context<ReturnType>>(forward<Arguments>(arguments)...);
-    return context.callCount;
 }
 
 template <class LockType, typename ReturnType, typename... Arguments>

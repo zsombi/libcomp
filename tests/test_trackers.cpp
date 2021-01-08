@@ -59,7 +59,7 @@ TEST_F(TrackerTest, connectToWeakPointer)
     destination.reset();
     EXPECT_FALSE(connection);
     // emit the signal
-    EXPECT_EQ(0, signal());
+    EXPECT_EQ(0, signal().size());
 }
 
 // The application developer should be able to bind trackables and shared pointers with the connection. Any tracker reset
@@ -114,11 +114,11 @@ TEST_F(TrackerTest, deleteTrackableInSlotDisconnects)
     signal.connect([](){});
     auto connection = signal.connect(deleter).bind(tracker.get());
     signal.connect([](){});
-    EXPECT_EQ(3, signal());
+    EXPECT_EQ(3, signal().size());
     EXPECT_FALSE(tracker);
     // The deleter slot is disconnected.
     EXPECT_FALSE(connection);
-    EXPECT_EQ(2, signal());
+    EXPECT_EQ(2, signal().size());
 }
 
 // The application developer should be able to destroy a tracker in the slot to shich the tracker is bount to.
@@ -137,11 +137,11 @@ TEST_F(TrackerTest, deleteSharedPtrTrackableInSlotDisconnects)
     signal.connect([](){});
     auto connection = signal.connect(deleter).bind(tracker);
     signal.connect([](){});
-    EXPECT_EQ(3, signal());
+    EXPECT_EQ(3, signal().size());
     EXPECT_FALSE(tracker);
     // The deleter slot is disconnected.
     EXPECT_FALSE(connection);
-    EXPECT_EQ(2, signal());
+    EXPECT_EQ(2, signal().size());
 }
 
 // The application developer should be able to destroy a tracker in the slot to shich the tracker is bount to.
@@ -161,13 +161,13 @@ TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_sharedPtr)
     signal.connect([](){});
     auto connection = signal.connect(deleter).bind(tracker1, tracker2.get());
     signal.connect([](){});
-    EXPECT_EQ(3, signal());
+    EXPECT_EQ(3, signal().size());
     EXPECT_FALSE(tracker1);
     // the second tracker is not destroyed.
     EXPECT_TRUE(tracker2);
     // The deleter slot is disconnected.
     EXPECT_FALSE(connection);
-    EXPECT_EQ(2, signal());
+    EXPECT_EQ(2, signal().size());
 }
 
 // The application developer should be able to destroy a tracker in the slot to shich the tracker is bount to.
@@ -187,13 +187,13 @@ TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_tracker)
     signal.connect([](){});
     auto connection = signal.connect(deleter).bind(tracker1, tracker2.get());
     signal.connect([](){});
-    EXPECT_EQ(3, signal());
+    EXPECT_EQ(3, signal().size());
     EXPECT_FALSE(tracker2);
     // the other tracker is not destroyed.
     EXPECT_TRUE(tracker1);
     // The deleter slot is disconnected.
     EXPECT_FALSE(connection);
-    EXPECT_EQ(2, signal());
+    EXPECT_EQ(2, signal().size());
 }
 
 // The application developer should be able to disconnect tracked slots in the slot to shich the tracker is bount to.
@@ -215,13 +215,13 @@ TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_sharedTrackerPtr)
     auto connection = signal.connect(deleter).bind(tracker1, tracker2);
     signal.connect([](){}).bind(tracker2);
     // The 3rd connection is disconnected by tracker2.
-    EXPECT_EQ(2, signal());
+    EXPECT_EQ(2, signal().size());
     EXPECT_FALSE(tracker2);
     // the other tracker is not destroyed.
     EXPECT_TRUE(tracker1);
     // The deleter slot is disconnected.
     EXPECT_FALSE(connection);
-    EXPECT_EQ(1, signal());
+    EXPECT_EQ(1, signal().size());
 }
 
 // The application developer should be able to disconnect tracked slots in the slot to shich the tracker is bount to.
@@ -242,11 +242,11 @@ TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_intrusiveTrackerPtr
     signal.connect([](){});
     auto connection = signal.connect(deleter).bind(tracker1, tracker2);
     signal.connect([](){}).bind(tracker2);
-    EXPECT_EQ(2, signal());
+    EXPECT_EQ(2, signal().size());
     EXPECT_FALSE(tracker2);
     // the other tracker is not destroyed.
     EXPECT_TRUE(tracker1);
     // The deleter slot is disconnected.
     EXPECT_FALSE(connection);
-    EXPECT_EQ(1, signal());
+    EXPECT_EQ(1, signal().size());
 }
