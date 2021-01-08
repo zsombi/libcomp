@@ -165,7 +165,7 @@ Collector SignalConcept<LockType, ReturnType, Arguments...>::operator()(Argument
 
     if (isBlocked() || m_emitGuard.isLocked())
     {
-        return move(context);
+        return context;
     }
 
     lock_guard guard(m_emitGuard);
@@ -209,7 +209,7 @@ Collector SignalConcept<LockType, ReturnType, Arguments...>::operator()(Argument
         }
     }
 
-    return move(context);
+    return context;
 }
 
 template <class LockType, typename ReturnType, typename... Arguments>

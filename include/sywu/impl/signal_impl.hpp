@@ -23,7 +23,7 @@ Collector MemberSignal<SignalHost, ReturnType(Arguments...)>::operator()(Argumen
     auto lockedHost = m_host.shared_from_this();
     SYWU_ASSERT(lockedHost);
     auto collector = BaseClass::template operator()<Collector>(forward<Arguments>(arguments)...);
-    return move(collector);
+    return collector;
 }
 
 } // namespace sywu
