@@ -44,7 +44,7 @@ TEST_F(MemberSignalTest, connectMemberSignalToFunction)
     auto connection = object->signal.connect(&function);
     EXPECT_TRUE(connection);
 
-    EXPECT_EQ(1, object->signal());
+    EXPECT_EQ(1, object->signal().size());
     EXPECT_EQ(1u, functionCallCount);
 }
 
@@ -54,7 +54,7 @@ TEST_F(MemberSignalTest, connectToFunctionWithArgument)
     auto connection = object->intSignal.connect(&functionWithIntArgument);
     EXPECT_TRUE(connection);
 
-    EXPECT_EQ(1, object->intSignal(10));
+    EXPECT_EQ(1, object->intSignal(10).size());
     EXPECT_EQ(10, intValue);
 }
 
@@ -64,7 +64,7 @@ TEST_F(MemberSignalTest, connectToFunctionWithTwoArguments)
     auto connection = object->intStrSignal.connect(&functionWithIntAndStringArgument);
     EXPECT_TRUE(connection);
 
-    EXPECT_EQ(1, object->intStrSignal(15, "alpha"));
+    EXPECT_EQ(1, object->intStrSignal(15, "alpha").size());
     EXPECT_EQ(15, intValue);
     EXPECT_EQ("alpha", stringValue);
 }
@@ -76,7 +76,7 @@ TEST_F(MemberSignalTest, connectToFunctionWithRefArgument)
     EXPECT_TRUE(connection);
 
     int ivalue = 10;
-    EXPECT_EQ(1, object->intRefSignal(ivalue));
+    EXPECT_EQ(1, object->intRefSignal(ivalue).size());
     EXPECT_EQ(10, intValue);
     EXPECT_EQ(20, ivalue);
 }
@@ -96,7 +96,7 @@ TEST_F(MemberSignalTest, deleteSenderObjectFromSlot)
     };
     object->signal.connect(deleter);
     object->signal.connect(checkWatcher);
-    EXPECT_EQ(2, object->signal());
+    EXPECT_EQ(2, object->signal().size());
     EXPECT_TRUE(watcher.expired());
 }
 
@@ -114,7 +114,7 @@ TEST_F(MemberSignalTest, deleteSenderSignalInSlot)
     auto connection2 = dynamicSignal->connect([](){});
     auto connection3 = dynamicSignal->connect([](){});
 
-    EXPECT_EQ(1, (*dynamicSignal)());
+    EXPECT_EQ(1, (*dynamicSignal)().size());
     EXPECT_EQ(nullptr, dynamicSignal);
     EXPECT_FALSE(connection1);
     EXPECT_FALSE(connection2);
@@ -166,6 +166,6 @@ TEST_F(MemberSignalTest, pimplSignal)
     };
     auto connection = object->getSignal().connect(slot);
     EXPECT_TRUE(connection);
-    EXPECT_EQ(1, object->getSignal()());
+    EXPECT_EQ(1, object->getSignal()().size());
     EXPECT_EQ(20, value);
 }

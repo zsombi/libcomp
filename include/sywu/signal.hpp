@@ -37,7 +37,8 @@ public:
     explicit MemberSignal(SignalHost& signalHost);
 
     /// Emit override for method signals.
-    size_t operator()(Arguments... arguments);
+    template <class Collector = DefaultSignalCollector<ReturnType>>
+    Collector operator()(Arguments... arguments);
 };
 
 } // namespace sywu

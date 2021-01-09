@@ -1,10 +1,8 @@
 #include "test_base.hpp"
 #include <sywu/impl/signal_impl.hpp>
 
-template class sywu::Signal<void()>;
-template class sywu::Signal<void(int)>;
-template class sywu::Signal<void(int&)>;
-template class sywu::Signal<void(int, std::string)>;
+namespace
+{
 
 class Object1 : public sywu::enable_shared_from_this<Object1>
 {
@@ -22,6 +20,8 @@ public:
     size_t methodCallCount = 0u;
 };
 
+}
+
 // The application developer can connect a signal to a function.
 TEST_F(SignalTest, connectToFunction)
 {
@@ -29,7 +29,7 @@ TEST_F(SignalTest, connectToFunction)
     auto connection = signal.connect(&function);
     EXPECT_TRUE(connection);
 
-    EXPECT_EQ(1, signal());
+    EXPECT_EQ(1, signal().size());
     EXPECT_EQ(1u, functionCallCount);
 }
 
@@ -113,11 +113,11 @@ TEST_F(SignalTest, emitSignalThatActivatedTheSlot)
 
     auto slot = [&signal]()
     {
-        EXPECT_EQ(0u, signal());
+        EXPECT_EQ(0u, signal().size());
     };
     signal.connect(slot);
 
-    EXPECT_EQ(1u, signal());
+    EXPECT_EQ(1u, signal().size());
 }
 
 // It should be possible for an application developer to receive the connection that is associated to a slot as the first argument.
@@ -171,9 +171,9 @@ TEST_F(SignalTest, disconnectWithSignal)
     };
     auto connection = signal.connect(slot);
     EXPECT_TRUE(connection);
-    EXPECT_EQ(1u, signal());
+    EXPECT_EQ(1u, signal().size());
     EXPECT_FALSE(connection);
-    EXPECT_EQ(0u, signal());
+    EXPECT_EQ(0u, signal().size());
 }
 
 // The application developer can connect the same function multiple times.
@@ -184,7 +184,7 @@ TEST_F(SignalTest, connectFunctionManyTimes)
     signal.connect(&function);
     signal.connect(&function);
 
-    EXPECT_EQ(functionCallCount, signal());
+    EXPECT_EQ(functionCallCount, signal().size());
 }
 
 // The application developer can connect the same method multiple times.
@@ -196,7 +196,7 @@ TEST_F(SignalTest, connectMethodManyTimes)
     signal.connect(object, &Object1::methodWithNoArg);
     signal.connect(object, &Object1::methodWithNoArg);
 
-    EXPECT_EQ(object->methodCallCount, signal());
+    EXPECT_EQ(object->methodCallCount, signal().size());
 }
 
 // The application developer can connect the same lambda multiple times.
@@ -209,7 +209,7 @@ TEST_F(SignalTest, connectLambdaManyTimes)
     signal.connect(slot);
     signal.connect(slot);
 
-    EXPECT_EQ(invokeCount, signal());
+    EXPECT_EQ(invokeCount, signal().size());
 }
 
 // The application developer can connect the activated signal to a slot from an activated slot.
@@ -223,9 +223,9 @@ TEST_F(SignalTest, connectToTheInvokingSignal)
         signal.connect(&function);
     };
     signal.connect(slot);
-    EXPECT_EQ(1, signal());
-    EXPECT_EQ(2, signal());
-    EXPECT_EQ(3, signal());
+    EXPECT_EQ(1, signal().size());
+    EXPECT_EQ(2, signal().size());
+    EXPECT_EQ(3, signal().size());
 }
 
 // When a signal is blocked, it shall not activate its connections.
@@ -238,9 +238,9 @@ TEST_F(SignalTest, blockSignal)
     signal.connect([](){});
 
     signal.setBlocked(true);
-    EXPECT_EQ(0, signal());
+    EXPECT_EQ(0, signal().size());
     signal.setBlocked(false);
-    EXPECT_EQ(3, signal());
+    EXPECT_EQ(3, signal().size());
 }
 
 // The application developer can block the signal from a slot. Blocking the signal from the slot does not affect the
@@ -253,8 +253,8 @@ TEST_F(SignalTest, blockSignalFromSlot)
     signal.connect([&signal](){ signal.setBlocked(true); });
     signal.connect([](){});
 
-    EXPECT_EQ(3, signal());
-    EXPECT_EQ(0, signal());
+    EXPECT_EQ(3, signal().size());
+    EXPECT_EQ(0, signal().size());
 }
 
 // When the application developer connects the activated signal to a slot from an activated slot,
@@ -269,10 +269,10 @@ TEST_F(SignalTest, connectionFromSlotGetsActivatedNextTime)
         signal.connect(&function);
     };
     signal.connect(slot);
-    EXPECT_EQ(1, signal());
+    EXPECT_EQ(1, signal().size());
     EXPECT_EQ(0, functionCallCount);
 
-    EXPECT_EQ(2, signal());
+    EXPECT_EQ(2, signal().size());
     EXPECT_EQ(1, functionCallCount);
 }
 
@@ -318,9 +318,9 @@ TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted_noConenctionHolding
         object.reset();
     };
     signal1.connect(objectDeleter);
-    EXPECT_EQ(2, signal1());
-    EXPECT_EQ(0, signal2());
-    EXPECT_EQ(0, signal3());
+    EXPECT_EQ(2u, signal1().size());
+    EXPECT_EQ(0u, signal2().size());
+    EXPECT_EQ(0u, signal3().size());
 }
 TEST_F(SignalTest, receiverObjectDeleted)
 {
@@ -329,9 +329,9 @@ TEST_F(SignalTest, receiverObjectDeleted)
     auto object = sywu::make_shared<Object1>();
     signal.connect(object, &Object1::methodWithNoArg);
 
-    EXPECT_EQ(1, signal());
+    EXPECT_EQ(1u, signal().size());
     object.reset();
-    EXPECT_EQ(0, signal());
+    EXPECT_EQ(0u, signal().size());
 }
 
 // When the signal is destroyed in a slot connected to that signal, it invalidates the connections of the signal.
@@ -349,7 +349,7 @@ TEST_F(SignalTest, deleteEmitterSignalFromSlot)
     auto connection2 = signal->connect([](){});
     auto connection3 = signal->connect([](){});
 
-    EXPECT_EQ(1, (*signal)());
+    EXPECT_EQ(1u, (*signal)().size());
     EXPECT_EQ(nullptr, signal);
     EXPECT_FALSE(connection1);
     EXPECT_FALSE(connection2);
@@ -365,10 +365,15 @@ TEST_F(SignalTest, deleteConnectedSignal)
 
     auto connection = sender->connect(*receiver);
     EXPECT_TRUE(connection);
-    EXPECT_EQ(1, (*sender)());
+    EXPECT_EQ(1u, (*sender)().size());
     receiver.reset();
     EXPECT_FALSE(connection);
-    EXPECT_EQ(0, (*sender)());
+    EXPECT_EQ(0u, (*sender)().size());
+}
+
+TEST_F(SignalTest, deleteConnectedSignalInSlotBeforeActivation)
+{
+
 }
 
 struct Functor
@@ -388,7 +393,7 @@ TEST_F(SignalTest, connectToFunctor)
     EXPECT_TRUE(connection);
 
     int value = 10;
-    EXPECT_EQ(1, signal(value));
+    EXPECT_EQ(1u, signal(value).size());
     EXPECT_EQ(100, value);
 }
 
@@ -450,4 +455,92 @@ TEST_F(SignalTest, pairNotifyDestruction)
     client.reset();
     EXPECT_EQ(1, server.use_count());
     EXPECT_EQ(0, server->m_pair.use_count());
+}
+
+class TestEmitWithCollector : public SignalTest
+{
+public:
+    class Object : public sywu::enable_shared_from_this<Object>
+    {
+    public:
+        sywu::MemberSignal<Object, int()> intSignal{*this};
+    };
+
+    sywu::Signal<int()> intSignal;
+    sywu::shared_ptr<Object> object;
+
+    explicit TestEmitWithCollector()
+    {
+        object = sywu::make_shared<Object>();
+
+        auto onOne = []() -> int
+        {
+            return 1;
+        };
+        auto onTen = []() -> int
+        {
+            return 10;
+        };
+
+        intSignal.connect(onOne);
+        intSignal.connect(onTen);
+        object->intSignal.connect(onOne);
+        object->intSignal.connect(onTen);
+    }
+
+    class Accumulate : public sywu::Collector<Accumulate>, public sywu::vector<int>
+    {
+    public:
+        bool handleResult(sywu::Connection, int result)
+        {
+            push_back(result);
+            return true;
+        }
+    };
+    class Summ : public sywu::Collector<Summ>
+    {
+    public:
+        bool handleResult(sywu::Connection, int result)
+        {
+            grandTotal += result;
+            return true;
+        }
+        int grandTotal = 0;
+    };
+};
+
+// The application developer should be able to use emit contexts to accumulate the results of the slots connected to a signal
+// that has a return value.
+TEST_F(TestEmitWithCollector, accumulateResults)
+{
+    auto collector = intSignal.operator()<Accumulate>();
+    EXPECT_EQ(2u, collector.size());
+    EXPECT_EQ(1, collector[0]);
+    EXPECT_EQ(10, collector[1]);
+}
+
+// The application developer should be able to use emit contexts to accumulate the results of the slots connected to a signal
+// that has a return value.
+TEST_F(TestEmitWithCollector, accumulateResults_MemberSignal)
+{
+    auto collector = object->intSignal.operator()<Accumulate>();
+    EXPECT_EQ(2u, collector.size());
+    EXPECT_EQ(1, collector[0]);
+    EXPECT_EQ(10, collector[1]);
+}
+
+// The application developer should be able to use emit contexts to summ the results of the slots connected to a signal
+// that has a return value.
+TEST_F(TestEmitWithCollector, summResults)
+{
+    auto collector = intSignal.operator()<Summ>();
+    EXPECT_EQ(11, collector.grandTotal);
+}
+
+// The application developer should be able to use emit contexts to summ the results of the slots connected to a signal
+// that has a return value.
+TEST_F(TestEmitWithCollector, summResults_MemberSignal)
+{
+    auto collector = object->intSignal.operator()<Summ>();
+    EXPECT_EQ(11, collector.grandTotal);
 }
