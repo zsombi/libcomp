@@ -1,22 +1,22 @@
-#ifndef SYWU_SIGNAL_CONCEPT_IMPL_HPP
-#define SYWU_SIGNAL_CONCEPT_IMPL_HPP
+#ifndef COMP_SIGNAL_CONCEPT_IMPL_HPP
+#define COMP_SIGNAL_CONCEPT_IMPL_HPP
 
-#include <sywu/concept/signal.hpp>
-#include <sywu/concept/slot_concept_impl.hpp>
-#include <sywu/wrap/memory.hpp>
-#include <sywu/wrap/exception.hpp>
-#include <sywu/wrap/functional.hpp>
-#include <sywu/wrap/utility.hpp>
-#include <sywu/wrap/vector.hpp>
+#include <comp/concept/signal.hpp>
+#include <comp/concept/slot_concept_impl.hpp>
+#include <comp/wrap/memory.hpp>
+#include <comp/wrap/exception.hpp>
+#include <comp/wrap/functional.hpp>
+#include <comp/wrap/utility.hpp>
+#include <comp/wrap/vector.hpp>
 
-namespace sywu
+namespace comp
 {
 
 namespace
 {
 
 template <typename FunctionType, typename LockType, typename ReturnType, typename... Arguments>
-class SYWU_TEMPLATE_API FunctionSlot final : public SlotConcept<LockType, ReturnType, Arguments...>
+class COMP_TEMPLATE_API FunctionSlot final : public SlotConcept<LockType, ReturnType, Arguments...>
 {
     ReturnType activateOverride(Arguments&&... args) override
     {
@@ -45,7 +45,7 @@ private:
 };
 
 template <class TargetObject, typename FunctionType, typename LockType, typename ReturnType, typename... Arguments>
-class SYWU_TEMPLATE_API MethodSlot final : public SlotConcept<LockType, ReturnType, Arguments...>
+class COMP_TEMPLATE_API MethodSlot final : public SlotConcept<LockType, ReturnType, Arguments...>
 {
     ReturnType activateOverride(Arguments&&... arguments) override
     {
@@ -82,7 +82,7 @@ private:
 };
 
 template <typename ReceiverSignal, typename LockType, typename ReturnType, typename... Arguments>
-class SYWU_TEMPLATE_API SignalSlot final : public SlotConcept<LockType, ReturnType, Arguments...>
+class COMP_TEMPLATE_API SignalSlot final : public SlotConcept<LockType, ReturnType, Arguments...>
 {
     ReturnType activateOverride(Arguments&&... arguments) override
     {
@@ -196,7 +196,7 @@ template <class LockType, typename ReturnType, typename... Arguments>
 Connection SignalConcept<LockType, ReturnType, Arguments...>::addSlot(SlotPtr slot)
 {
     auto slotActivator = dynamic_pointer_cast<SlotType>(slot);
-    SYWU_ASSERT(slotActivator);
+    COMP_ASSERT(slotActivator);
     lock_guard lock(*this);
     m_slots.push_back(slotActivator);
     return Connection(m_slots.back());
@@ -253,6 +253,6 @@ void SignalConcept<LockType, ReturnType, Arguments...>::disconnect(Connection co
     erase(m_slots, slot);
 }
 
-} // namespace sywu
+} // namespace comp
 
-#endif // SYWU_SIGNAL_CONCEPT_IMPL_HPP
+#endif // COMP_SIGNAL_CONCEPT_IMPL_HPP

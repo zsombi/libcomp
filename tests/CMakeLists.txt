@@ -5,7 +5,7 @@ enable_testing()
 
 include(configure-target)
 include(gtest)
-include_directories( ${SYWU_SOURCES}/tests ${GTEST_INCLUDE_DIRS} )
+include_directories( ${COMP_SOURCES}/tests ${GTEST_INCLUDE_DIRS} )
 
 set (SOURCES
     test_main.cpp
@@ -16,7 +16,7 @@ set (SOURCES
 )
 
 add_executable(unittests ${SOURCES})
-target_link_libraries(unittests ${SYWU_TEST_LIBS} sywu)
-#target_include_directories(unittests PRIVATE ${SYWU_SOURCES}/tests)
+target_link_libraries(unittests ${COMP_TEST_LIBS} comp_lib)
+#target_include_directories(unittests PRIVATE ${COMP_SOURCES}/tests)
 configure_target(unittests)
-add_test(NAME test-1 COMMAND unittests "--gtest_output=xml:unittest.xml" WORKING_DIRECTORY "${SYWU_BUILD_PATH}")
+add_test(NAME test-1 COMMAND unittests "--gtest_output=xml:unittest.xml" WORKING_DIRECTORY "${COMP_BUILD_PATH}")

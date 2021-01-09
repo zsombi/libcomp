@@ -1,10 +1,10 @@
 #include "test_base.hpp"
-#include <sywu/signal.hpp>
+#include <comp/signal.hpp>
 
 namespace
 {
 
-class Object1 : public sywu::enable_shared_from_this<Object1>
+class Object1 : public comp::enable_shared_from_this<Object1>
 {
 public:
     void methodWithNoArg()
@@ -12,7 +12,7 @@ public:
         ++methodCallCount;
     }
 
-    void autoDisconnect(sywu::Connection connection)
+    void autoDisconnect(comp::Connection connection)
     {
         connection.disconnect();
     }
@@ -25,7 +25,7 @@ public:
 // The application developer can connect a signal to a function.
 TEST_F(SignalTest, connectToFunction)
 {
-    sywu::Signal<void()> signal;
+    comp::Signal<void()> signal;
     auto connection = signal.connect(&function);
     EXPECT_TRUE(connection);
 
@@ -36,7 +36,7 @@ TEST_F(SignalTest, connectToFunction)
 // The application developer can connect a signal to a function with arguments.
 TEST_F(SignalTest, connectToFunctionWithArgument)
 {
-    sywu::Signal<void(int)> signal;
+    comp::Signal<void(int)> signal;
     auto connection = signal.connect(&functionWithIntArgument);
     EXPECT_TRUE(connection);
 
@@ -45,7 +45,7 @@ TEST_F(SignalTest, connectToFunctionWithArgument)
 }
 TEST_F(SignalTest, connectToFunctionWithTwoArguments)
 {
-    sywu::Signal<void(int, std::string)> signal;
+    comp::Signal<void(int, std::string)> signal;
     auto connection = signal.connect(&functionWithIntAndStringArgument);
     EXPECT_TRUE(connection);
 
@@ -57,12 +57,12 @@ TEST_F(SignalTest, connectToFunctionWithTwoArguments)
 // The application developer can connect a signal to a function with reference arguments.
 TEST_F(SignalTest, connectToFunctionWithRefArgument)
 {
-    sywu::Signal<void(int&)> signal;
+    comp::Signal<void(int&)> signal;
     auto connection = signal.connect(&functionWithIntRefArgument);
     EXPECT_TRUE(connection);
 
     int ivalue = 10;
-    signal(sywu::ref(ivalue));
+    signal(comp::ref(ivalue));
     EXPECT_EQ(10, intValue);
     EXPECT_EQ(20, ivalue);
 }
@@ -70,8 +70,8 @@ TEST_F(SignalTest, connectToFunctionWithRefArgument)
 // The application developer can connect a signal to a method.
 TEST_F(SignalTest, connectToMethod)
 {
-    sywu::Signal<void()> signal;
-    auto object = sywu::make_shared<Object1>();
+    comp::Signal<void()> signal;
+    auto object = comp::make_shared<Object1>();
     auto connection = signal.connect(object, &Object1::methodWithNoArg);
     EXPECT_TRUE(connection);
 
@@ -82,7 +82,7 @@ TEST_F(SignalTest, connectToMethod)
 // The application developer can connect a signal to a lambda.
 TEST_F(SignalTest, connectToLambda)
 {
-    sywu::Signal<void()> signal;
+    comp::Signal<void()> signal;
     bool invoked = false;
     auto connection = signal.connect([&invoked]() { invoked = true; });
     EXPECT_TRUE(connection);
@@ -94,8 +94,8 @@ TEST_F(SignalTest, connectToLambda)
 // The application developer can connect a signal to an other signal.
 TEST_F(SignalTest, connectToSignal)
 {
-    sywu::Signal<void()> signal1;
-    sywu::Signal<void()> signal2;
+    comp::Signal<void()> signal1;
+    comp::Signal<void()> signal2;
     bool invoked = false;
 
     auto connection = signal1.connect(signal2);
@@ -109,7 +109,7 @@ TEST_F(SignalTest, connectToSignal)
 // When the application developer emits the signal from a slot that is connected to that signal, the signal emit shall not happen
 TEST_F(SignalTest, emitSignalThatActivatedTheSlot)
 {
-    sywu::Signal<void()> signal;
+    comp::Signal<void()> signal;
 
     auto slot = [&signal]()
     {
@@ -123,14 +123,14 @@ TEST_F(SignalTest, emitSignalThatActivatedTheSlot)
 // It should be possible for an application developer to receive the connection that is associated to a slot as the first argument.
 TEST_F(SignalTest, slotWithConnection)
 {
-    using VoidSignalType = sywu::Signal<void()>;
-    using IntSignalType = sywu::Signal<void(int)>;
+    using VoidSignalType = comp::Signal<void()>;
+    using IntSignalType = comp::Signal<void(int)>;
 
-    auto onVoidSignal = [](sywu::Connection connection)
+    auto onVoidSignal = [](comp::Connection connection)
     {
         connection.disconnect();
     };
-    auto onIntSignal = [](sywu::Connection connection, int)
+    auto onIntSignal = [](comp::Connection connection, int)
     {
         connection.disconnect();
     };
@@ -149,10 +149,10 @@ TEST_F(SignalTest, slotWithConnection)
 // It should be possible for an application developer to receive the connection that is associated to a slot as the first argument.
 TEST_F(SignalTest, methodSlotWithConnection)
 {
-    using VoidSignalType = sywu::Signal<void()>;
+    using VoidSignalType = comp::Signal<void()>;
 
     VoidSignalType voidSignal;
-    auto object = sywu::make_shared<Object1>();
+    auto object = comp::make_shared<Object1>();
 
     auto voidConnection = voidSignal.connect(object, &Object1::autoDisconnect);
     EXPECT_TRUE(voidConnection);
@@ -163,9 +163,9 @@ TEST_F(SignalTest, methodSlotWithConnection)
 // The application developer can disconnect a connection from a signal using the signal disconnect function.
 TEST_F(SignalTest, disconnectWithSignal)
 {
-    using SignalType = sywu::Signal<void()>;
+    using SignalType = comp::Signal<void()>;
     SignalType signal;
-    auto slot = [](sywu::Connection connection)
+    auto slot = [](comp::Connection connection)
     {
         connection.disconnect();
     };
@@ -179,7 +179,7 @@ TEST_F(SignalTest, disconnectWithSignal)
 // The application developer can connect the same function multiple times.
 TEST_F(SignalTest, connectFunctionManyTimes)
 {
-    sywu::Signal<void()> signal;
+    comp::Signal<void()> signal;
     signal.connect(&function);
     signal.connect(&function);
     signal.connect(&function);
@@ -190,8 +190,8 @@ TEST_F(SignalTest, connectFunctionManyTimes)
 // The application developer can connect the same method multiple times.
 TEST_F(SignalTest, connectMethodManyTimes)
 {
-    sywu::Signal<void()> signal;
-    auto object = sywu::make_shared<Object1>();
+    comp::Signal<void()> signal;
+    auto object = comp::make_shared<Object1>();
     signal.connect(object, &Object1::methodWithNoArg);
     signal.connect(object, &Object1::methodWithNoArg);
     signal.connect(object, &Object1::methodWithNoArg);
@@ -202,7 +202,7 @@ TEST_F(SignalTest, connectMethodManyTimes)
 // The application developer can connect the same lambda multiple times.
 TEST_F(SignalTest, connectLambdaManyTimes)
 {
-    sywu::Signal<void()> signal;
+    comp::Signal<void()> signal;
     int invokeCount = 0;
     auto slot = [&invokeCount] { ++invokeCount; };
     signal.connect(slot);
@@ -215,7 +215,7 @@ TEST_F(SignalTest, connectLambdaManyTimes)
 // The application developer can connect the activated signal to a slot from an activated slot.
 TEST_F(SignalTest, connectToTheInvokingSignal)
 {
-    using SignalType = sywu::Signal<void()>;
+    using SignalType = comp::Signal<void()>;
     SignalType signal;
 
     auto slot = [&signal]()
@@ -231,7 +231,7 @@ TEST_F(SignalTest, connectToTheInvokingSignal)
 // When a signal is blocked, it shall not activate its connections.
 TEST_F(SignalTest, blockSignal)
 {
-    using SignalType = sywu::Signal<void()>;
+    using SignalType = comp::Signal<void()>;
     SignalType signal;
     signal.connect([](){});
     signal.connect([](){});
@@ -247,7 +247,7 @@ TEST_F(SignalTest, blockSignal)
 // active emit loop of the signal.
 TEST_F(SignalTest, blockSignalFromSlot)
 {
-    using SignalType = sywu::Signal<void()>;
+    using SignalType = comp::Signal<void()>;
     SignalType signal;
     signal.connect([](){});
     signal.connect([&signal](){ signal.setBlocked(true); });
@@ -261,7 +261,7 @@ TEST_F(SignalTest, blockSignalFromSlot)
 // that connection is not activated in the same signal activation.
 TEST_F(SignalTest, connectionFromSlotGetsActivatedNextTime)
 {
-    using SignalType = sywu::Signal<void()>;
+    using SignalType = comp::Signal<void()>;
     SignalType signal;
 
     auto slot = [&signal]()
@@ -280,13 +280,13 @@ TEST_F(SignalTest, connectionFromSlotGetsActivatedNextTime)
 // the connections in which the object is found are invalidated.
 TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted)
 {
-    using SignalType = sywu::Signal<void()>;
+    using SignalType = comp::Signal<void()>;
     SignalType signal1;
     SignalType signal2;
     SignalType signal3;
 
-    auto object = sywu::make_shared<Object1>();
-    auto weakObject = sywu::weak_ptr<Object1>(object);
+    auto object = comp::make_shared<Object1>();
+    auto weakObject = comp::weak_ptr<Object1>(object);
     auto connection1 = signal1.connect(object, &Object1::methodWithNoArg);
     auto connection2 = signal2.connect(object, &Object1::methodWithNoArg);
     auto connection3 = signal3.connect(object, &Object1::methodWithNoArg);
@@ -304,12 +304,12 @@ TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted)
 }
 TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted_noConenctionHolding)
 {
-    using SignalType = sywu::Signal<void()>;
+    using SignalType = comp::Signal<void()>;
     SignalType signal1;
     SignalType signal2;
     SignalType signal3;
 
-    auto object = sywu::make_shared<Object1>();
+    auto object = comp::make_shared<Object1>();
     signal1.connect(object, &Object1::methodWithNoArg);
     signal2.connect(object, &Object1::methodWithNoArg);
     signal3.connect(object, &Object1::methodWithNoArg);
@@ -324,9 +324,9 @@ TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted_noConenctionHolding
 }
 TEST_F(SignalTest, receiverObjectDeleted)
 {
-    using SignalType = sywu::Signal<void()>;
+    using SignalType = comp::Signal<void()>;
     SignalType signal;
-    auto object = sywu::make_shared<Object1>();
+    auto object = comp::make_shared<Object1>();
     signal.connect(object, &Object1::methodWithNoArg);
 
     EXPECT_EQ(1u, signal().size());
@@ -338,8 +338,8 @@ TEST_F(SignalTest, receiverObjectDeleted)
 // The connections following the slot that destroys the signal are not processed.
 TEST_F(SignalTest, deleteEmitterSignalFromSlot)
 {
-    using SignalType = sywu::Signal<void()>;
-    auto signal = sywu::make_unique<SignalType>();
+    using SignalType = comp::Signal<void()>;
+    auto signal = comp::make_unique<SignalType>();
 
     auto killSignal = [&signal]()
     {
@@ -358,10 +358,10 @@ TEST_F(SignalTest, deleteEmitterSignalFromSlot)
 
 TEST_F(SignalTest, deleteConnectedSignal)
 {
-    using SenderType = sywu::Signal<void()>;
-    using ReceiverType = sywu::Signal<void()>;
-    auto sender = sywu::make_unique<SenderType>();
-    auto receiver = sywu::make_unique<ReceiverType>();
+    using SenderType = comp::Signal<void()>;
+    using ReceiverType = comp::Signal<void()>;
+    auto sender = comp::make_unique<SenderType>();
+    auto receiver = comp::make_unique<ReceiverType>();
 
     auto connection = sender->connect(*receiver);
     EXPECT_TRUE(connection);
@@ -386,7 +386,7 @@ struct Functor
 
 TEST_F(SignalTest, connectToFunctor)
 {
-    using SignalType = sywu::Signal<void(int&)>;
+    using SignalType = comp::Signal<void(int&)>;
     SignalType signal;
     Functor fn;
     auto connection = signal.connect(fn);
@@ -401,8 +401,8 @@ namespace
 {
 
 class Base;
-using BasePtr = sywu::shared_ptr<Base>;
-using BaseWeakPtr = sywu::weak_ptr<Base>;
+using BasePtr = comp::shared_ptr<Base>;
+using BaseWeakPtr = comp::weak_ptr<Base>;
 
 class Base : public NotifyDestroyed<Base>
 {
@@ -431,7 +431,7 @@ public:
 class Server : public Base
 {
 public:
-    sywu::MemberSignal<Server, void()> closed{*this};
+    comp::MemberSignal<Server, void()> closed{*this};
     explicit Server() = default;
 };
 
@@ -439,8 +439,8 @@ public:
 
 TEST_F(SignalTest, pairNotifyDestruction)
 {
-    auto server = sywu::make_shared<Base, Server>();
-    auto client = sywu::make_shared<Base, Client>();
+    auto server = comp::make_shared<Base, Server>();
+    auto client = comp::make_shared<Base, Client>();
     EXPECT_EQ(1, server.use_count());
     EXPECT_EQ(0, server->m_pair.use_count());
 
@@ -460,18 +460,18 @@ TEST_F(SignalTest, pairNotifyDestruction)
 class TestEmitWithCollector : public SignalTest
 {
 public:
-    class Object : public sywu::enable_shared_from_this<Object>
+    class Object : public comp::enable_shared_from_this<Object>
     {
     public:
-        sywu::MemberSignal<Object, int()> intSignal{*this};
+        comp::MemberSignal<Object, int()> intSignal{*this};
     };
 
-    sywu::Signal<int()> intSignal;
-    sywu::shared_ptr<Object> object;
+    comp::Signal<int()> intSignal;
+    comp::shared_ptr<Object> object;
 
     explicit TestEmitWithCollector()
     {
-        object = sywu::make_shared<Object>();
+        object = comp::make_shared<Object>();
 
         auto onOne = []() -> int
         {
@@ -488,19 +488,19 @@ public:
         object->intSignal.connect(onTen);
     }
 
-    class Accumulate : public sywu::Collector<Accumulate>, public sywu::vector<int>
+    class Accumulate : public comp::Collector<Accumulate>, public comp::vector<int>
     {
     public:
-        bool handleResult(sywu::Connection, int result)
+        bool handleResult(comp::Connection, int result)
         {
             push_back(result);
             return true;
         }
     };
-    class Summ : public sywu::Collector<Summ>
+    class Summ : public comp::Collector<Summ>
     {
     public:
-        bool handleResult(sywu::Connection, int result)
+        bool handleResult(comp::Connection, int result)
         {
             grandTotal += result;
             return true;

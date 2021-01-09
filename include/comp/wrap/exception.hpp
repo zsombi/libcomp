@@ -1,17 +1,17 @@
-#ifndef SYWU_EXCEPTION_HPP
-#define SYWU_EXCEPTION_HPP
+#ifndef COMP_EXCEPTION_HPP
+#define COMP_EXCEPTION_HPP
 
 #include <exception>
-#include <sywu/config.hpp>
+#include <comp/config.hpp>
 
-namespace sywu
+namespace comp
 {
 
 using std::exception;
 using std::terminate;
 
 /// Exception thrown when a slot that is not connected is activated.
-class SYWU_API bad_slot : public exception
+class COMP_API bad_slot : public exception
 {
 public:
     explicit bad_slot() = default;
@@ -19,4 +19,4 @@ public:
 
 }
 
-#endif // SYWU_EXCEPTION_HPP
+#endif // COMP_EXCEPTION_HPP

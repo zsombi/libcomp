@@ -1,7 +1,7 @@
-#ifndef SYWU_TUPLE_HPP
-#define SYWU_TUPLE_HPP
+#ifndef COMP_TUPLE_HPP
+#define COMP_TUPLE_HPP
 
-namespace sywu
+namespace comp
 {
 
 #include <tuple>
@@ -11,6 +11,6 @@ using std::make_tuple;
 using std::tuple_element;
 using std::get;
 
-} // namespace sywu
+} // namespace comp
 
-#endif // SYWU_TUPLE_HPP
+#endif // COMP_TUPLE_HPP

@@ -1,16 +1,16 @@
 #include "test_base.hpp"
-#include <sywu/signal.hpp>
+#include <comp/signal.hpp>
 
-class TestObject : public sywu::enable_shared_from_this<TestObject>
+class TestObject : public comp::enable_shared_from_this<TestObject>
 {
 public:
     int voidMethodCallCount = 0;
     int intMethodValue = 0;
 
-    sywu::MemberSignal<TestObject, void()> signal{*this};
-    sywu::MemberSignal<TestObject, void(int)> intSignal{*this};
-    sywu::MemberSignal<TestObject, void(int&)> intRefSignal{*this};
-    sywu::MemberSignal<TestObject, void(int, std::string)> intStrSignal{*this};
+    comp::MemberSignal<TestObject, void()> signal{*this};
+    comp::MemberSignal<TestObject, void(int)> intSignal{*this};
+    comp::MemberSignal<TestObject, void(int&)> intRefSignal{*this};
+    comp::MemberSignal<TestObject, void(int, std::string)> intStrSignal{*this};
 
     void voidMethod()
     {
@@ -22,20 +22,20 @@ public:
     }
 };
 
-template class sywu::MemberSignal<TestObject, void()>;
-template class sywu::MemberSignal<TestObject, void(int)>;
-template class sywu::MemberSignal<TestObject, void(int&)>;
-template class sywu::MemberSignal<TestObject, void(int, std::string)>;
+template class comp::MemberSignal<TestObject, void()>;
+template class comp::MemberSignal<TestObject, void(int)>;
+template class comp::MemberSignal<TestObject, void(int&)>;
+template class comp::MemberSignal<TestObject, void(int, std::string)>;
 
 class MemberSignalTest : public SignalTest
 {
 public:
     explicit MemberSignalTest()
-        : object(sywu::make_shared<TestObject>())
+        : object(comp::make_shared<TestObject>())
     {
     }
 
-    sywu::shared_ptr<TestObject> object;
+    comp::shared_ptr<TestObject> object;
 };
 
 // The application developer can connect a member signal to a function.
@@ -60,7 +60,7 @@ TEST_F(MemberSignalTest, connectToFunctionWithArgument)
 
 TEST_F(MemberSignalTest, connectToFunctionWithTwoArguments)
 {
-    auto object = sywu::make_shared<TestObject>();
+    auto object = comp::make_shared<TestObject>();
     auto connection = object->intStrSignal.connect(&functionWithIntAndStringArgument);
     EXPECT_TRUE(connection);
 
@@ -84,7 +84,7 @@ TEST_F(MemberSignalTest, connectToFunctionWithRefArgument)
 // The signal should survive the sender object deletion.
 TEST_F(MemberSignalTest, deleteSenderObjectFromSlot)
 {
-    sywu::weak_ptr<TestObject> watcher = object;
+    comp::weak_ptr<TestObject> watcher = object;
     auto deleter = [this]()
     {
         object.reset();
@@ -103,8 +103,8 @@ TEST_F(MemberSignalTest, deleteSenderObjectFromSlot)
 // The application developer should be able to delete a dynamic signal member of the sender object.
 TEST_F(MemberSignalTest, deleteSenderSignalInSlot)
 {
-    using SignalType = sywu::MemberSignal<TestObject, void()>;
-    auto dynamicSignal = sywu::make_unique<SignalType>(*object);
+    using SignalType = comp::MemberSignal<TestObject, void()>;
+    auto dynamicSignal = comp::make_unique<SignalType>(*object);
 
     auto killSignal = [&dynamicSignal]()
     {
@@ -123,10 +123,10 @@ TEST_F(MemberSignalTest, deleteSenderSignalInSlot)
 
 // The application developer should be able to declare a member signal in a PIMPL of a class
 // and track the public object.
-class Object : public sywu::enable_shared_from_this<Object>
+class Object : public comp::enable_shared_from_this<Object>
 {
 public:
-    using SignalType = sywu::MemberSignal<Object, void()>;
+    using SignalType = comp::MemberSignal<Object, void()>;
 
     explicit Object()
         : d(new Pimpl(*this))
@@ -153,12 +153,12 @@ private:
         }
     };
 
-    sywu::unique_ptr<Pimpl> d;
+    comp::unique_ptr<Pimpl> d;
 };
 
 TEST_F(MemberSignalTest, pimplSignal)
 {
-    auto object = sywu::make_shared<Object>();
+    auto object = comp::make_shared<Object>();
     int value = 10;
     auto slot = [&value]()
     {

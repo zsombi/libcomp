@@ -1,4 +1,4 @@
-# Component Programming Library - CPL
+# Component Programming Library - ComP
 
 The library is a header-only c++ library, which contains signals, slots and properties.
 
@@ -33,7 +33,7 @@ To be added later.
 
 No special installation is required, you only copy the include folder to some folder you prefer, or
 add the include path to reach the library headers in your environment. Then 
-- include "cpl/signal.hpp" and start using the library.
+- include "comp/signal.hpp" and start using the library.
 - if you want to use the library in thread-safe manner, define CPL_CONFIG_THREAD_ENABLED
 - if you use the library in shared libraries, you need to export the signal templates, and thus you
   have to define CPL_CONFIG_LIBRARY when building your shared library.
@@ -48,7 +48,7 @@ void function()
 }
 
 // Declare an argumentum-free signal.
-cpl::Signal<void()> signal;
+comp::Signal<void()> signal;
 
 // Connect the function to the signal.
 signal.connect(function);
@@ -59,7 +59,7 @@ signal();
 
 When connecting signals to methods, the object of the method must be a shared object:
 ```cpp
-class Object : public cpl::enable_shared_from_this<Object>
+class Object : public comp::enable_shared_from_this<Object>
 {
 public:
     void method()
@@ -67,8 +67,8 @@ public:
     }
 };
 
-auto object = cpl::make_shared<Object>();
-cpl::Signal<void()> signal;
+auto object = comp::make_shared<Object>();
+comp::Signal<void()> signal;
 
 // Connect the method to the signal.
 signal.connect(object, &Object::method);
@@ -85,7 +85,7 @@ void function()
 }
 
 // Declare an argumentum-free signal.
-cpl::Signal<void()> signal;
+comp::Signal<void()> signal;
 
 // Connect the function to the signal.
 auto connection = signal.connect(function);
@@ -102,14 +102,14 @@ The extended slot signature is formed using the Connection object followed by th
 signature.
 
 ```cpp
-void function(cpl::Connection connection)
+void function(comp::Connection connection)
 {
     // Disconnect the slot when activated.
     connection.disconnect();
 }
 
 // Declare an argumentum-free signal.
-cpl::Signal<void()> signal;
+comp::Signal<void()> signal;
 
 // Connect the function to the signal.
 signal.connect(function);
@@ -154,17 +154,17 @@ the slot.
 If you want to remove a slot from a tracker (untrack) within the activated slot, use the extended
 slot signature, and untrack the slot.
 ```cpp
-class Object : public Tracker, public cpl::enable_shared_from_this<Object>
+class Object : public Tracker, public comp::enable_shared_from_this<Object>
 {
 public:
     explicit Object() = default;
 };
 
-auto object = cpl::make_shared<Tracker, Object>();
-cpl::Signal<void()> signal;
+auto object = comp::make_shared<Tracker, Object>();
+comp::Signal<void()> signal;
 
 // Note: capture shared objects as weak pointer!
-auto slot = [weakObject = cpl::weak_ptr<Object>(object)](cpl::Connection connection)
+auto slot = [weakObject = comp::weak_ptr<Object>(object)](comp::Connection connection)
 {
     auto locked = weakObject.lock();
     if (!locked)

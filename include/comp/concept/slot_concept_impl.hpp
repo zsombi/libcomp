@@ -1,11 +1,11 @@
-#ifndef SYWU_CONNECTION_IMPL_HPP
-#define SYWU_CONNECTION_IMPL_HPP
+#ifndef COMP_CONNECTION_IMPL_HPP
+#define COMP_CONNECTION_IMPL_HPP
 
-#include <sywu/concept/signal.hpp>
-#include <sywu/wrap/exception.hpp>
-#include <sywu/wrap/intrusive_ptr.hpp>
+#include <comp/concept/signal.hpp>
+#include <comp/wrap/exception.hpp>
+#include <comp/wrap/intrusive_ptr.hpp>
 
-namespace sywu
+namespace comp
 {
 
 namespace
@@ -60,7 +60,7 @@ struct WeakPtrTracker final : TrackerInterface
     }
     void track(SlotPtr slot)
     {
-        SYWU_UNUSED(slot);
+        COMP_UNUSED(slot);
         if constexpr (is_trackable_class_v<Type>)
         {
             trackable.lock()->track(slot);
@@ -68,7 +68,7 @@ struct WeakPtrTracker final : TrackerInterface
     }
     void untrack(SlotPtr slot)
     {
-        SYWU_UNUSED(slot);
+        COMP_UNUSED(slot);
         if constexpr (is_trackable_class_v<Type>)
         {
             trackable.lock()->untrack(slot);
@@ -199,9 +199,9 @@ ReturnType SlotConcept<LockType, ReturnType, Arguments...>::activate(Arguments&&
 template <class... Trackers>
 Connection& Connection::bind(Trackers... trackers)
 {
-    SYWU_ASSERT(*this);
+    COMP_ASSERT(*this);
     auto slot = m_slot.lock();
-    SYWU_ASSERT(slot);
+    COMP_ASSERT(slot);
 
     auto binder = [&slot](auto tracker)
     {
@@ -211,6 +211,6 @@ Connection& Connection::bind(Trackers... trackers)
     return *this;
 }
 
-} // namespace sywu
+} // namespace comp
 
-#endif // SYWU_CONNECTION_IMPL_HPP
+#endif // COMP_CONNECTION_IMPL_HPP

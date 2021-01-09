@@ -1,9 +1,9 @@
-#ifndef SYWU_UTILITY_HPP
-#define SYWU_UTILITY_HPP
+#ifndef COMP_UTILITY_HPP
+#define COMP_UTILITY_HPP
 
 #include <utility>
 
-namespace sywu
+namespace comp
 {
 
 using std::forward;
@@ -18,6 +18,6 @@ void for_each_arg(Function f, Arguments&&... args)
     (void)(int[]){(f(forward<Arguments>(args)), 0)...};
 }
 
-} // namespace sywu
+} // namespace comp
 
-#endif // SYWU_UTILITY_HPP
+#endif // COMP_UTILITY_HPP

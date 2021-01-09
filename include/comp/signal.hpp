@@ -1,11 +1,11 @@
-#ifndef SYWU_SIGNAL_HPP
-#define SYWU_SIGNAL_HPP
+#ifndef COMP_SIGNAL_HPP
+#define COMP_SIGNAL_HPP
 
-#include <sywu/wrap/mutex.hpp>
-#include <sywu/concept/signal.hpp>
-#include <sywu/concept/signal_concept_impl.hpp>
+#include <comp/wrap/mutex.hpp>
+#include <comp/concept/signal.hpp>
+#include <comp/concept/signal_concept_impl.hpp>
 
-namespace sywu
+namespace comp
 {
 
 template <typename ReturnType, typename... Arguments>
@@ -14,7 +14,7 @@ class Signal;
 /// The signal template. Use this template to define a signal with a signature.
 /// \tparam Arguments The arguments of the signal, which is the signature of the signal.
 template <typename ReturnType, typename... Arguments>
-class SYWU_TEMPLATE_API Signal<ReturnType(Arguments...)> : public SignalConcept<mutex, ReturnType, Arguments...>
+class COMP_TEMPLATE_API Signal<ReturnType(Arguments...)> : public SignalConcept<mutex, ReturnType, Arguments...>
 {
 public:
     /// Constructor.
@@ -27,7 +27,7 @@ class MemberSignal;
 /// \tparam SignalHost The class on which the member signal is defined.
 /// \tparam Arguments The arguments of the signal, which is the signature of the signal.
 template <class SignalHost, typename ReturnType, typename... Arguments>
-class SYWU_TEMPLATE_API MemberSignal<SignalHost, ReturnType(Arguments...)> : public SignalConcept<mutex, ReturnType, Arguments...>
+class COMP_TEMPLATE_API MemberSignal<SignalHost, ReturnType(Arguments...)> : public SignalConcept<mutex, ReturnType, Arguments...>
 {
     using BaseClass = SignalConcept<mutex, ReturnType, Arguments...>;
     SignalHost& m_host;
@@ -44,12 +44,12 @@ public:
     Collector operator()(Arguments... arguments)
     {
         auto lockedHost = m_host.shared_from_this();
-        SYWU_ASSERT(lockedHost);
+        COMP_ASSERT(lockedHost);
         auto collector = BaseClass::template operator()<Collector>(forward<Arguments>(arguments)...);
         return collector;
     }
 };
 
-} // namespace sywu
+} // namespace comp
 
-#endif // SYWU_SIGNAL_HPP
+#endif // COMP_SIGNAL_HPP

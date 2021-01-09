@@ -1,9 +1,9 @@
-#ifndef SYWU_TYPE_TRAITS_HPP
-#define SYWU_TYPE_TRAITS_HPP
+#ifndef COMP_TYPE_TRAITS_HPP
+#define COMP_TYPE_TRAITS_HPP
 
 #include <type_traits>
 
-namespace sywu
+namespace comp
 {
 
 using std::false_type;
@@ -31,4 +31,4 @@ using std::remove_pointer_t;
 
 } // namespace traits
 
-#endif // SYWU_TYPE_TRAITS_HPP
+#endif // COMP_TYPE_TRAITS_HPP

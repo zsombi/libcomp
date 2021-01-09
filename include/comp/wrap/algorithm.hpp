@@ -1,9 +1,9 @@
-#ifndef SYWU_ALGORITHM_HPP
-#define SYWU_ALGORITHM_HPP
+#ifndef COMP_ALGORITHM_HPP
+#define COMP_ALGORITHM_HPP
 
 #include <algorithm>
 
-namespace sywu
+namespace comp
 {
 
 using std::for_each;
@@ -13,6 +13,6 @@ using std::remove;
 using std::remove_if;
 using std::swap;
 
-} // namespace sywu
+} // namespace comp
 
-#endif // SYWU_ALGORITHM_HPP
+#endif // COMP_ALGORITHM_HPP
