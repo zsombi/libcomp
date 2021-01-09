@@ -1,5 +1,5 @@
 #include "test_base.hpp"
-#include <sywu/impl/signal_impl.hpp>
+#include <sywu/signal.hpp>
 
 namespace
 {

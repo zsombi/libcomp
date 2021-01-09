@@ -106,26 +106,6 @@ private:
     ReceiverSignal* m_receiver = nullptr;
 };
 
-template <class T, typename Enable = void>
-struct Context : public Collector<Context<T>>
-{
-    size_t callCount = 0u;
-    void handleResult(Connection)
-    {
-        ++callCount;
-    }
-};
-
-template <class T>
-struct Context<T, enable_if_t<!is_void_v<T>, void>> : public Collector<Context<T>>
-{
-    size_t callCount = 0u;
-    void handleResult(Connection, T)
-    {
-        ++callCount;
-    }
-};
-
 } // namespace noname
 
 template <class DerivedCollector>

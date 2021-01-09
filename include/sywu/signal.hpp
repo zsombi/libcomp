@@ -1,9 +1,9 @@
 #ifndef SYWU_SIGNAL_HPP
 #define SYWU_SIGNAL_HPP
 
-#include <sywu/config.hpp>
-#include <sywu/concept/signal.hpp>
 #include <sywu/wrap/mutex.hpp>
+#include <sywu/concept/signal.hpp>
+#include <sywu/concept/signal_concept_impl.hpp>
 
 namespace sywu
 {
@@ -34,11 +34,20 @@ class SYWU_TEMPLATE_API MemberSignal<SignalHost, ReturnType(Arguments...)> : pub
 
 public:
     /// Constructor
-    explicit MemberSignal(SignalHost& signalHost);
+    explicit MemberSignal(SignalHost& signalHost)
+        : m_host(signalHost)
+    {
+    }
 
     /// Emit override for method signals.
     template <class Collector = DefaultSignalCollector<ReturnType>>
-    Collector operator()(Arguments... arguments);
+    Collector operator()(Arguments... arguments)
+    {
+        auto lockedHost = m_host.shared_from_this();
+        SYWU_ASSERT(lockedHost);
+        auto collector = BaseClass::template operator()<Collector>(forward<Arguments>(arguments)...);
+        return collector;
+    }
 };
 
 } // namespace sywu

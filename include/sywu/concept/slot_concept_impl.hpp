@@ -12,7 +12,7 @@ namespace
 {
 
 template <typename T>
-constexpr bool is_trackable_class_v = is_base_of_v<Tracker, decay_t<T>>;
+constexpr bool is_trackable_class_v = is_base_of_v<TrackerInterface, decay_t<T>>;
 
 template <typename T>
 constexpr bool is_trackable_pointer_v = is_pointer_v<T> && is_trackable_class_v<remove_pointer_t<T>>;
@@ -31,7 +31,7 @@ constexpr bool is_valid_trackable_arg = (
 
 struct PtrTracker final : TrackerInterface
 {
-    Tracker* trackable = nullptr;
+    TrackerInterface* trackable = nullptr;
     explicit PtrTracker(Tracker* trackable)
         : trackable(trackable)
     {
