@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
+add_subdirectory(connect)
+add_subdirectory(disconnect)
+add_subdirectory(track_tracker)
+add_subdirectory(track_shared)
+add_subdirectory(track_shared_tracker)
+add_subdirectory(track_intrusive_tracker)

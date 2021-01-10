@@ -71,7 +71,11 @@ struct WeakPtrTracker final : TrackerInterface
         COMP_UNUSED(slot);
         if constexpr (is_trackable_class_v<Type>)
         {
-            trackable.lock()->untrack(slot);
+            auto locked = trackable.lock();
+            if (locked)
+            {
+                locked->untrack(slot);
+            }
         }
     }
     bool isValid() const

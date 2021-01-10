@@ -2,6 +2,8 @@
 
 The library is a header-only c++ library, which contains signals, slots and properties.
 
+[TOC]
+
 ## Signals and Slots
 
 The main goal is to provide a design where you can
@@ -34,14 +36,41 @@ To be added later.
 No special installation is required, you only copy the include folder to some folder you prefer, or
 add the include path to reach the library headers in your environment. Then 
 - include "comp/signal.hpp" and start using the library.
-- if you want to use the library in thread-safe manner, define CPL_CONFIG_THREAD_ENABLED
+- if you want to use the library in thread-safe manner, define COMP_CONFIG_THREAD_ENABLED
 - if you use the library in shared libraries, you need to export the signal templates, and thus you
-  have to define CPL_CONFIG_LIBRARY when building your shared library.
+  have to define COMP_CONFIG_LIBRARY when building your shared library.
   
+## Declaring signals
+
+To declare a signal, use the function signature to define the return type and the argument types.
+```cpp
+comp::Signal<int(int, std::string_view, int&)> signal;
+comp::Signal<void()> fireAndForget;
+```
+
+To declare a signal that locks its host object when activated, use MemberSignal.
+```cpp
+class Socket : public comp::enable_shared_from_this<Socket>
+{
+public:
+    comp::MemberSignal<Socket, void(int)> opened {*this};
+    
+    int open()
+    {
+        // Perform opening
+        opened(handler);
+        return handler;
+    }
+    
+protected:
+    explicit Socket() = default
+};
+```
+
 ## Signal use-cases
 
 ### Simple use-cases
-Declaring signals and connecting those to functions is straight forward:
+
 ```cpp
 void function()
 {
@@ -67,12 +96,14 @@ public:
     }
 };
 
-auto object = comp::make_shared<Object>();
 comp::Signal<void()> signal;
 
 // Connect the method to the signal.
+auto object = comp::make_shared<Object>();
 signal.connect(object, &Object::method);
 ```
+
+Connecting signals to functions is illustrated in [this](./examples/connect/example_connect.cpp) example.
 
 ### Connect to an other signal
 You can connect two signals with exact same signature. You ccan even interconnect them so whenever one 
@@ -130,6 +161,7 @@ signal.connect(function);
 // Emit the signal. When the slot is activated, it disconnects itself.
 signal();
 ```
+Disconnecting connections is illustrated in [this](./examples/disconnect/example_disconnect.cpp) example.
 
 ### Track the lifetime of a slot
 
@@ -181,24 +213,18 @@ if (!connection)
 
 Example of using a pointer to a Tracker-derived object as tracker.
 ```cpp
-class Object : public Tracker
+class Object : public comp::Tracker
 {
 public:
     explicit Object() = default;
 };
 
-auto object = comp::make_unique<Object>();
 comp::Signal<void()> signal;
+auto object = comp::make_unique<Object>();
 
-// Note: capture shared objects as weak pointer!
-auto slot = [weakObject = comp::weak_ptr<Object>(object)]()
+auto slot = [&object]()
 {
-    auto locked = weakObject.lock();
-    if (!locked)
-    {
-        return;
-    }
-    // Use the locked object.
+    // Use the object.
 };
 
 // Connect slot and bind tracker.
@@ -224,17 +250,17 @@ make sure the tracker disconnects all the tracked objects, call Tracker::disconn
 the slot.
 
 ```cpp
-class Object : public Tracker, public comp::enable_shared_from_this<Object>
+class Object : public comp::Tracker, public comp::enable_shared_from_this<Object>
 {
 public:
     explicit Object() = default;
 };
 
-auto object = comp::make_shared<Tracker, Object>();
 comp::Signal<void()> signal;
 
+auto object = comp::make_shared<comp::Tracker, Object>();
 // Note: capture shared objects as weak pointer!
-auto slot = [weakObject = comp::weak_ptr<Object>(object)]()
+auto slot = [weakObject = comp::weak_ptr<comp::Tracker>(object)]()
 {
     auto locked = weakObject.lock();
     if (!locked)
@@ -264,7 +290,7 @@ auto object = comp::make_shared<Tracker, Object>();
 comp::Signal<void()> signal;
 
 // Note: capture shared objects as weak pointer!
-auto slot = [weakObject = comp::weak_ptr<Object>(object)](comp::Connection connection)
+auto untrackSlot = [weakObject = comp::weak_ptr<comp::Tracker>(object)](comp::Connection connection)
 {
     auto locked = weakObject.lock();
     if (!locked)
@@ -275,11 +301,13 @@ auto slot = [weakObject = comp::weak_ptr<Object>(object)](comp::Connection conne
 };
 
 // Connect slot and bind tracker.
-signal.connect(slot).bind(object);
+signal.connect(untrackSlot).bind(object);
 
 // Emit the signal.
 signal();
 ```
+
+The same applies to intrusive pointers, see [this](./examples/track_intrusive_tracker/example.cpp) example.
 
 ### Define the signal in PIMPL
 TBA
