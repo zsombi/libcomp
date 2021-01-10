@@ -24,6 +24,26 @@ jobs:
       run: |
         cd examples/connect
         ./connect
+    - name: Run disconnect example
+      run: |
+        cd examples/disconnect
+        ./disconnect
+    - name: Run track_shared example
+      run: |
+        cd examples/track_shared
+        ./track_shared
+    - name: Run track_tracker example
+      run: |
+        cd examples/track_tracker
+        ./track_tracker
+    - name: Run track_shared_tracker example
+      run: |
+        cd examples/track_shared_tracker
+        ./track_shared_tracker
+    - name: Run track_intrusive_tracker example
+      run: |
+        cd examples/track_intrusive_tracker
+        ./track_intrusive_tracker
     - name: Run unit tests
       run: |
         cd tests
