@@ -61,8 +61,8 @@ protected:
     virtual void addTracker(TrackerPtr&&) = 0;
 };
 
-/// The Connection holds a slot connected to a signal. It is a token to a sender signal and a receiver
-/// slot connected to that signal.
+/// The Connection holds a slot connected to a signal. It is a token to a receiver slot connected to
+/// that signal.
 class COMP_API Connection
 {
 public:
@@ -78,6 +78,7 @@ public:
     /// Destructor.
     ~Connection() = default;
 
+    /// Disconnects the slot.
     void disconnect()
     {
         auto slot = m_slot.lock();
@@ -190,7 +191,7 @@ private:
 /// with the following signature:
 /// - \e {bool handleResult(Connection[, ReturnType [const&]])}
 /// where \e Connection is the connection to the slot, and \e ReturnType is the return type of the slot.
-/// You must specify the return type if the slot returns a non-void value. To stop teh signal activation,
+/// You must specify the return type if the slot returns a non-void value. To stop the signal activation,
 /// return \e false, otherwise return \e true.
 template <class DerivedCollector>
 class COMP_TEMPLATE_API Collector

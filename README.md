@@ -74,6 +74,19 @@ comp::Signal<void()> signal;
 signal.connect(object, &Object::method);
 ```
 
+### Connect to an other signal
+You can connect two signals with exact same signature. You ccan even interconnect them so whenever one 
+is activated, the other one is also activated. You cannot re-emit a signal while is activated.
+
+```cpp
+comp::Signal<int(std::string&)> signal1;
+comp::Signal<int(std::string&)> signal2;
+
+// Interconnect the two signals.
+signal1.connect(signal2);
+signal2.connect(signal1);
+```
+
 ### Disconnect a slot
 
 You can disconnect a slot using the connection object either by calling the Signal::disconnect()
@@ -132,12 +145,74 @@ validity check.
 
 Example of using a shared pointer as tracker.
 ```cpp
+class Object : public comp::enable_shared_from_this<Object>
+{
+public:
+    explicit Object() = default;
+};
 
+auto object = comp::make_shared<Object>();
+comp::Signal<void()> signal;
+
+// Note: capture shared objects as weak pointer!
+auto slot = [weakObject = comp::weak_ptr<Object>(object)]()
+{
+    auto locked = weakObject.lock();
+    if (!locked)
+    {
+        return;
+    }
+    // Use the locked object.
+};
+
+// Connect slot and bind tracker.
+auto connection = signal.connect(slot).bind(object);
+
+// Emit the signal.
+signal();
+
+// Reset the object, then see the connection disconnected.
+object.reset();
+if (!connection)
+{
+    std::puts("The connection is disconnected.");
+}
 ```
 
 Example of using a pointer to a Tracker-derived object as tracker.
 ```cpp
+class Object : public Tracker
+{
+public:
+    explicit Object() = default;
+};
 
+auto object = comp::make_unique<Object>();
+comp::Signal<void()> signal;
+
+// Note: capture shared objects as weak pointer!
+auto slot = [weakObject = comp::weak_ptr<Object>(object)]()
+{
+    auto locked = weakObject.lock();
+    if (!locked)
+    {
+        return;
+    }
+    // Use the locked object.
+};
+
+// Connect slot and bind tracker.
+auto connection = signal.connect(slot).bind(object.get());
+
+// Emit the signal.
+signal();
+
+// Reset the object, then see the connection disconnected.
+object.reset();
+if (!connection)
+{
+    std::puts("The connection is disconnected.");
+}
 ```
 
 ### Tracker as type of a shared- or intrusive pointer
@@ -145,10 +220,35 @@ Example of using a pointer to a Tracker-derived object as tracker.
 When the tracker is a shared pointer with Tracker as type, resetting the pointer of the tracker object 
 in the slot may not cause the pointer to release, if the use count of the shared pointer is high enough
 to keep the smartt pointer alive. If you want the tracker to "simulate" destruction, i.e you want to 
-make sure the tracker disconnects all teh tracked objects, call Tracker::disconnectTrackedSlots() in
+make sure the tracker disconnects all the tracked objects, call Tracker::disconnectTrackedSlots() in
 the slot.
 
 ```cpp
+class Object : public Tracker, public comp::enable_shared_from_this<Object>
+{
+public:
+    explicit Object() = default;
+};
+
+auto object = comp::make_shared<Tracker, Object>();
+comp::Signal<void()> signal;
+
+// Note: capture shared objects as weak pointer!
+auto slot = [weakObject = comp::weak_ptr<Object>(object)]()
+{
+    auto locked = weakObject.lock();
+    if (!locked)
+    {
+        return;
+    }
+    locked->disconnectTrackedSlots();
+};
+
+// Connect slot and bind tracker.
+signal.connect(slot).bind(object);
+
+// Emit the signal.
+signal();
 ```
 
 If you want to remove a slot from a tracker (untrack) within the activated slot, use the extended

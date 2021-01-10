@@ -106,6 +106,40 @@ TEST_F(SignalTest, connectToSignal)
     EXPECT_TRUE(invoked);
 }
 
+class InterconnectSignalTest : public SignalTest
+{
+public:
+    comp::Signal<void()> signal1;
+    comp::Signal<void()> signal2;
+    int signal1Count = 0;
+    int signal2Count = 0;
+
+    explicit InterconnectSignalTest()
+    {
+        auto onSignal1 = [this]() { ++signal1Count; };
+        auto onSignal2 = [this]() { ++signal2Count; };
+        signal1.connect(onSignal1);
+        signal2.connect(onSignal2);
+    }
+};
+
+TEST_F(InterconnectSignalTest, interconnectSignals)
+{
+    auto connection1 = signal1.connect(signal2);
+    auto connection2 = signal2.connect(signal1);
+
+    EXPECT_TRUE(connection1);
+    EXPECT_TRUE(connection2);
+    // signal1 emit activates both signals' slots.
+    EXPECT_EQ(2u, signal1().size());
+    EXPECT_EQ(1, signal1Count);
+    EXPECT_EQ(1, signal2Count);
+    // signal2 emit also activates both signals' slots.
+    EXPECT_EQ(2u, signal2().size());
+    EXPECT_EQ(2, signal1Count);
+    EXPECT_EQ(2, signal2Count);
+}
+
 // When the application developer emits the signal from a slot that is connected to that signal, the signal emit shall not happen
 TEST_F(SignalTest, emitSignalThatActivatedTheSlot)
 {
