@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.6 FATAL_ERROR)
 find_package(GTest)
 if (${GTEST_FOUND})
     message( "Using GTest from System")
-    set ( SYWU_TEST_LIBS  GTest::GTest GTest::Main )
+    set ( COMP_TEST_LIBS  GTest::GTest GTest::Main )
 else()
 
     #######################################
@@ -55,5 +55,5 @@ else()
     message(GMOCK_SOURCE = ${gmock_SOURCE_DIR})
 
     set(GTEST_INCLUDE_DIRS "${gtest_SOURCE_DIR}/include" "${gmock_SOURCE_DIR}/include")
-    set(SYWU_TEST_LIBS gtest_main )
+    set(COMP_TEST_LIBS gtest_main )
 endif()

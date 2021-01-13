@@ -1,10 +1,10 @@
-#ifndef SYWU_VECTOR_HPP
-#define SYWU_VECTOR_HPP
+#ifndef COMP_VECTOR_HPP
+#define COMP_VECTOR_HPP
 
 #include <vector>
-#include <sywu/wrap/algorithm.hpp>
+#include <comp/wrap/algorithm.hpp>
 
-namespace sywu
+namespace comp
 {
 
 using std::vector;
@@ -58,6 +58,6 @@ void erase_if(vector<Type, Allocator>& v, const Predicate& predicate)
     v.erase(remove_if(v.begin(), v.end(), predicate), v.end());
 }
 
-} // namespace sywu
+} // namespace comp
 
-#endif // SYWU_VECTOR_HPP
+#endif // COMP_VECTOR_HPP

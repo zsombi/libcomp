@@ -1,14 +1,14 @@
-#ifndef SYWU_CONNECTION_HPP
-#define SYWU_CONNECTION_HPP
+#ifndef COMP_CONNECTION_HPP
+#define COMP_CONNECTION_HPP
 
-#include <sywu/config.hpp>
-#include <sywu/wrap/memory.hpp>
-#include <sywu/wrap/mutex.hpp>
-#include <sywu/wrap/vector.hpp>
-#include <sywu/wrap/type_traits.hpp>
-#include <sywu/wrap/function_traits.hpp>
+#include <comp/config.hpp>
+#include <comp/wrap/memory.hpp>
+#include <comp/wrap/mutex.hpp>
+#include <comp/wrap/vector.hpp>
+#include <comp/wrap/type_traits.hpp>
+#include <comp/wrap/function_traits.hpp>
 
-namespace sywu
+namespace comp
 {
 
 class Connection;
@@ -17,7 +17,7 @@ using SlotPtr = shared_ptr<SlotInterface>;
 using SlotWeakPtr = weak_ptr<SlotInterface>;
 
 /// Tracker interface.
-struct SYWU_API TrackerInterface
+struct COMP_API TrackerInterface
 {
     /// Destructor.
     virtual ~TrackerInterface() = default;
@@ -32,7 +32,7 @@ struct SYWU_API TrackerInterface
 using TrackerPtr = unique_ptr<TrackerInterface>;
 
 /// Interface for slots.
-class SYWU_API SlotInterface : public enable_shared_from_this<SlotInterface>
+class COMP_API SlotInterface : public enable_shared_from_this<SlotInterface>
 {
 public:
     virtual ~SlotInterface() = default;
@@ -61,9 +61,9 @@ protected:
     virtual void addTracker(TrackerPtr&&) = 0;
 };
 
-/// The Connection holds a slot connected to a signal. It is a token to a sender signal and a receiver
-/// slot connected to that signal.
-class SYWU_API Connection
+/// The Connection holds a slot connected to a signal. It is a token to a receiver slot connected to
+/// that signal.
+class COMP_API Connection
 {
 public:
     /// Constructor.
@@ -78,6 +78,7 @@ public:
     /// Destructor.
     ~Connection() = default;
 
+    /// Disconnects the slot.
     void disconnect()
     {
         auto slot = m_slot.lock();
@@ -133,7 +134,7 @@ private:
 /// use this class. The class disconnects all tracked slots on destruction.
 /// You can bind trackers to a connection using the #Connection::bind() method, by passing the pointer
 /// to the Tracker object as argument of the method.
-class SYWU_API Tracker : public TrackerInterface
+class COMP_API Tracker : public TrackerInterface
 {
 public:
     /// Destructor.
@@ -190,10 +191,10 @@ private:
 /// with the following signature:
 /// - \e {bool handleResult(Connection[, ReturnType [const&]])}
 /// where \e Connection is the connection to the slot, and \e ReturnType is the return type of the slot.
-/// You must specify the return type if the slot returns a non-void value. To stop teh signal activation,
+/// You must specify the return type if the slot returns a non-void value. To stop the signal activation,
 /// return \e false, otherwise return \e true.
 template <class DerivedCollector>
-class SYWU_TEMPLATE_API Collector
+class COMP_TEMPLATE_API Collector
 {
     DerivedCollector* getSelf()
     {
@@ -258,7 +259,7 @@ struct DefaultSignalCollector<T, enable_if_t<!is_void_v<T>, void>> : public Coll
 /// The Slot holds the invocable connected to a signal. The slot is a function, a function object, a method
 /// or an other signal.
 template <typename LockType, typename ReturnType, typename... Arguments>
-class SYWU_TEMPLATE_API SlotConcept : public SlotInterface, public Lockable<mutex>
+class COMP_TEMPLATE_API SlotConcept : public SlotInterface, public Lockable<mutex>
 {
 public:
     /// Activates the slot with the arguments passed, and returns the slot's return value.
@@ -289,7 +290,7 @@ private:
 /// The SignalConcept defines the concept of a signal. Defined as a lockable for convenience, holds the
 /// connections of the signal.
 template <class LockType, typename ReturnType, typename... Arguments>
-class SYWU_TEMPLATE_API SignalConcept : public Lockable<LockType>, public Tracker
+class COMP_TEMPLATE_API SignalConcept : public Lockable<LockType>, public Tracker
 {
 public:
     using SlotType = SlotConcept<LockType, ReturnType, Arguments...>;
@@ -364,6 +365,6 @@ private:
     atomic_bool m_isBlocked = false;
 };
 
-} // namespace sywu
+} // namespace comp
 
-#endif // SYWU_CONNECTION_HPP
+#endif // COMP_CONNECTION_HPP

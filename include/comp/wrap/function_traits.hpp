@@ -1,10 +1,10 @@
-#ifndef SYWU_FUNCTION_TRAITS_HPP
-#define SYWU_FUNCTION_TRAITS_HPP
+#ifndef COMP_FUNCTION_TRAITS_HPP
+#define COMP_FUNCTION_TRAITS_HPP
 
-#include <sywu/wrap/tuple.hpp>
-#include <sywu/wrap/type_traits.hpp>
+#include <comp/wrap/tuple.hpp>
+#include <comp/wrap/type_traits.hpp>
 
-namespace sywu
+namespace comp
 {
 
 enum FunctionType
@@ -94,6 +94,6 @@ struct function_traits<TRet(*)(Args...)>
     static constexpr bool is_same_args = is_same_v<tuple<Args...>, tuple<TestArgs...>>;
 };
 
-} // namespace sywu
+} // namespace comp
 
-#endif // SYWU_FUNCTION_TRAITS_HPP
+#endif // COMP_FUNCTION_TRAITS_HPP

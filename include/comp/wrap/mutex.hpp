@@ -1,20 +1,20 @@
-#ifndef SYWU_MUTEX_HPP
-#define SYWU_MUTEX_HPP
+#ifndef COMP_MUTEX_HPP
+#define COMP_MUTEX_HPP
 
-#include <sywu/wrap/atomic.hpp>
-#include <sywu/wrap/utility.hpp>
-#include <sywu/config.hpp>
+#include <comp/wrap/atomic.hpp>
+#include <comp/wrap/utility.hpp>
+#include <comp/config.hpp>
 
-#ifdef SYWU_CONFIG_THREAD_ENABLED
+#ifdef COMP_CONFIG_THREAD_ENABLED
 
 #include <mutex>
 
 #endif
 
-namespace sywu
+namespace comp
 {
 
-#ifdef SYWU_CONFIG_THREAD_ENABLED
+#ifdef COMP_CONFIG_THREAD_ENABLED
 
 using std::mutex;
 using std::lock_guard;
@@ -22,7 +22,7 @@ using std::lock_guard;
 #else
 
 template <class Mutex>
-class SYWU_TEMPLATE_API lock_guard
+class COMP_TEMPLATE_API lock_guard
 {
 public:
     using mutex_type = Mutex;
@@ -37,7 +37,7 @@ public:
         m_mutex.unlock();
     }
 
-    SYWU_DISABLE_COPY(lock_guard);
+    COMP_DISABLE_COPY(lock_guard);
 private:
     mutex_type& m_mutex;
 };
@@ -46,7 +46,7 @@ private:
 
 /// Unlocks a mutex on creation, and re-locks it on destruction.
 template <class Mutex>
-class SYWU_TEMPLATE_API relock_guard
+class COMP_TEMPLATE_API relock_guard
 {
 public:
     typedef Mutex mutex_type;
@@ -61,13 +61,13 @@ public:
         m_mutex.lock();
     }
 
-    SYWU_DISABLE_COPY(relock_guard);
+    COMP_DISABLE_COPY(relock_guard);
 private:
     mutex_type& m_mutex;
 };
 
 /// Flag lock. Implements a simple boolean lock guard.
-struct SYWU_API FlagGuard : protected atomic_bool
+struct COMP_API FlagGuard : protected atomic_bool
 {
     explicit FlagGuard()
     {
@@ -76,7 +76,7 @@ struct SYWU_API FlagGuard : protected atomic_bool
     void lock()
     {
         const auto test = try_lock();
-        SYWU_ASSERT(test);
+        COMP_ASSERT(test);
     }
     bool try_lock()
     {
@@ -86,7 +86,7 @@ struct SYWU_API FlagGuard : protected atomic_bool
     void unlock()
     {
         const auto state = exchange(false);
-        SYWU_ASSERT(state);
+        COMP_ASSERT(state);
     }
     bool isLocked()
     {
@@ -94,17 +94,17 @@ struct SYWU_API FlagGuard : protected atomic_bool
     }
 };
 
-#ifndef SYWU_CONFIG_THREAD_ENABLED
+#ifndef COMP_CONFIG_THREAD_ENABLED
 using mutex = FlagGuard;
 #endif
 
 /// Implements a lockable object.
 template <typename LockType>
-class SYWU_API Lockable
+class COMP_API Lockable
 {
     LockType m_mutex;
 
-    SYWU_DISABLE_COPY_OR_MOVE(Lockable)
+    COMP_DISABLE_COPY_OR_MOVE(Lockable)
 
 public:
     explicit Lockable() = default;
@@ -126,6 +126,6 @@ public:
     }
 };
 
-} // namespace sywu
+} // namespace comp
 
-#endif // SYWU_MUTEX_HPP
+#endif // COMP_MUTEX_HPP

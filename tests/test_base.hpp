@@ -2,7 +2,7 @@
 #define TEST_BASE_HPP
 
 #include <gtest/gtest.h>
-#include <sywu/signal.hpp>
+#include <comp/signal.hpp>
 
 class SignalTest : public ::testing::Test
 {
@@ -42,10 +42,10 @@ public:
 };
 
 template <class DerivedClass>
-class NotifyDestroyed : public sywu::enable_shared_from_this<DerivedClass>
+class NotifyDestroyed : public comp::enable_shared_from_this<DerivedClass>
 {
 public:
-    sywu::Signal<void()> destroyed;
+    comp::Signal<void()> destroyed;
 
     explicit NotifyDestroyed() = default;
     ~NotifyDestroyed()

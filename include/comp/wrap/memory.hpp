@@ -1,11 +1,11 @@
-#ifndef SYWU_MEMORY_HPP
-#define SYWU_MEMORY_HPP
+#ifndef COMP_MEMORY_HPP
+#define COMP_MEMORY_HPP
 
 #include <memory>
-#include <sywu/wrap/utility.hpp>
-#include <sywu/wrap/type_traits.hpp>
+#include <comp/wrap/utility.hpp>
+#include <comp/wrap/type_traits.hpp>
 
-namespace sywu
+namespace comp
 {
 
 using std::pointer_traits;
@@ -78,6 +78,6 @@ shared_ptr<Base> make_shared(Arguments&&... args)
     return shared_ptr<Base>(static_cast<Base*>(new Derived(forward<Arguments>(args)...)));
 }
 
-} // namespace sywu
+} // namespace comp
 
-#endif // SYWU_MEMORY_HPP
+#endif // COMP_MEMORY_HPP

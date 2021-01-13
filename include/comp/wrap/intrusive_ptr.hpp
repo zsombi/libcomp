@@ -1,21 +1,21 @@
-#ifndef SYWU_INTRUSIVE_PTR_HPP
-#define SYWU_INTRUSIVE_PTR_HPP
+#ifndef COMP_INTRUSIVE_PTR_HPP
+#define COMP_INTRUSIVE_PTR_HPP
 
-#ifdef SYWU_USE_BOOST
+#ifdef COMP_USE_BOOST
 #include <boost/intrusive_ptr.hpp>
 #else
-#include <sywu/wrap/algorithm.hpp>
+#include <comp/wrap/algorithm.hpp>
 #endif
 
-#include <sywu/wrap/atomic.hpp>
-#include <sywu/wrap/exception.hpp>
-#include <sywu/wrap/type_traits.hpp>
-#include <sywu/wrap/utility.hpp>
+#include <comp/wrap/atomic.hpp>
+#include <comp/wrap/exception.hpp>
+#include <comp/wrap/type_traits.hpp>
+#include <comp/wrap/utility.hpp>
 
-namespace sywu
+namespace comp
 {
 
-#ifdef SYWU_USE_BOOST
+#ifdef COMP_USE_BOOST
 
 using boost::intrusive_ptr;
 
@@ -105,13 +105,13 @@ public:
 
     T& operator*() const
     {
-        SYWU_ASSERT(m_ptr);
+        COMP_ASSERT(m_ptr);
         return *m_ptr;
     }
 
     T* operator->() const
     {
-        SYWU_ASSERT(m_ptr);
+        COMP_ASSERT(m_ptr);
         return m_ptr;
     }
 
@@ -122,7 +122,7 @@ public:
 
     void swap(intrusive_ptr& rhs)
     {
-        sywu::swap(m_ptr, rhs.m_ptr);
+        comp::swap(m_ptr, rhs.m_ptr);
     }
 
 private:
@@ -221,6 +221,6 @@ intrusive_ptr<T> make_intrusive(Arguments&&... arguments)
     return move(intrusive_ptr<T>(new T(forward<Arguments>(arguments)...)));
 }
 
-} // namespace sywu
+} // namespace comp
 
-#endif // SYWU_INTRUSIVE_PTR_HPP
+#endif // COMP_INTRUSIVE_PTR_HPP

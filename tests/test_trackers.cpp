@@ -1,22 +1,22 @@
 #include "test_base.hpp"
-#include <sywu/impl/signal_impl.hpp>
+#include <comp/signal.hpp>
 
 namespace
 {
 
-class TestTracker : public sywu::Tracker
+class TestTracker : public comp::Tracker
 {
 public:
     explicit TestTracker() = default;
 };
 
-class IntrusiveTracker : public sywu::Tracker, public sywu::enable_intrusive_ptr
+class IntrusiveTracker : public comp::Tracker, public comp::enable_intrusive_ptr
 {
 public:
     explicit IntrusiveTracker() = default;
 };
 
-class Object : public sywu::enable_shared_from_this<Object>
+class Object : public comp::enable_shared_from_this<Object>
 {
 public:
     explicit Object() = default;
@@ -34,9 +34,9 @@ public:
 // the connection.
 TEST_F(TrackerTest, connectToTrackable)
 {
-    using SignalType = sywu::Signal<void()>;
+    using SignalType = comp::Signal<void()>;
     SignalType signal;
-    auto destination = sywu::make_unique<TestTracker>();
+    auto destination = comp::make_unique<TestTracker>();
 
     auto connection = signal.connect([](){});
     connection.bind(destination.get());
@@ -49,9 +49,9 @@ TEST_F(TrackerTest, connectToTrackable)
 // the connection.
 TEST_F(TrackerTest, connectToWeakPointer)
 {
-    using SignalType = sywu::Signal<void()>;
+    using SignalType = comp::Signal<void()>;
     SignalType signal;
-    auto destination = sywu::make_shared<Object>();
+    auto destination = comp::make_shared<Object>();
 
     auto connection = signal.connect([](){});
     connection.bind(destination);
@@ -66,10 +66,10 @@ TEST_F(TrackerTest, connectToWeakPointer)
 // disconnects the connection.
 TEST_F(TrackerTest, connectToTrackableAndWeakPointer)
 {
-    using SignalType = sywu::Signal<void()>;
+    using SignalType = comp::Signal<void()>;
     SignalType signal;
-    auto t1 = sywu::make_shared<Object>();
-    auto t2 = sywu::make_unique<TestTracker>();
+    auto t1 = comp::make_shared<Object>();
+    auto t2 = comp::make_unique<TestTracker>();
 
     auto connection = signal.connect([](){});
     connection.bind(t1, t2.get());
@@ -81,12 +81,12 @@ TEST_F(TrackerTest, connectToTrackableAndWeakPointer)
 // The application developer should be able to track multiple slots with the same tracker.
 TEST_F(TrackerTest, bindTrackerToMultipleSignals)
 {
-    using VoidSignalType = sywu::Signal<void()>;
-    using IntSignalType = sywu::Signal<int()>;
+    using VoidSignalType = comp::Signal<void()>;
+    using IntSignalType = comp::Signal<int()>;
 
     VoidSignalType voidSignal;
     IntSignalType intSignal;
-    auto tracker = sywu::make_unique<TestTracker>();
+    auto tracker = comp::make_unique<TestTracker>();
 
     auto connection1 = voidSignal.connect([](){}).bind(tracker.get());
     auto connection2 = intSignal.connect([](){ return 0; }).bind(tracker.get());
@@ -101,9 +101,9 @@ TEST_F(TrackerTest, bindTrackerToMultipleSignals)
 // The application developer should be able to destroy a tracker in the slot to shich the tracker is bount to.
 TEST_F(TrackerTest, deleteTrackableInSlotDisconnects)
 {
-    using SignalType = sywu::Signal<void()>;
+    using SignalType = comp::Signal<void()>;
     SignalType signal;
-    auto tracker = sywu::make_unique<TestTracker>();
+    auto tracker = comp::make_unique<TestTracker>();
 
     auto deleter = [&tracker]()
     {
@@ -124,9 +124,9 @@ TEST_F(TrackerTest, deleteTrackableInSlotDisconnects)
 // The application developer should be able to destroy a tracker in the slot to shich the tracker is bount to.
 TEST_F(TrackerTest, deleteSharedPtrTrackableInSlotDisconnects)
 {
-    using SignalType = sywu::Signal<void()>;
+    using SignalType = comp::Signal<void()>;
     SignalType signal;
-    auto tracker = sywu::make_shared<Object>();
+    auto tracker = comp::make_shared<Object>();
 
     auto deleter = [&tracker]()
     {
@@ -147,10 +147,10 @@ TEST_F(TrackerTest, deleteSharedPtrTrackableInSlotDisconnects)
 // The application developer should be able to destroy a tracker in the slot to shich the tracker is bount to.
 TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_sharedPtr)
 {
-    using SignalType = sywu::Signal<void()>;
+    using SignalType = comp::Signal<void()>;
     SignalType signal;
-    auto tracker1 = sywu::make_shared<Object>();
-    auto tracker2 = sywu::make_unique<TestTracker>();
+    auto tracker1 = comp::make_shared<Object>();
+    auto tracker2 = comp::make_unique<TestTracker>();
 
     auto deleter = [&tracker1]()
     {
@@ -173,10 +173,10 @@ TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_sharedPtr)
 // The application developer should be able to destroy a tracker in the slot to shich the tracker is bount to.
 TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_tracker)
 {
-    using SignalType = sywu::Signal<void()>;
+    using SignalType = comp::Signal<void()>;
     SignalType signal;
-    auto tracker1 = sywu::make_shared<Object>();
-    auto tracker2 = sywu::make_unique<TestTracker>();
+    auto tracker1 = comp::make_shared<Object>();
+    auto tracker2 = comp::make_unique<TestTracker>();
 
     auto deleter = [&tracker2]()
     {
@@ -199,10 +199,10 @@ TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_tracker)
 // The application developer should be able to disconnect tracked slots in the slot to shich the tracker is bount to.
 TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_sharedTrackerPtr)
 {
-    using SignalType = sywu::Signal<void()>;
+    using SignalType = comp::Signal<void()>;
     SignalType signal;
-    auto tracker1 = sywu::make_shared<Object>();
-    auto tracker2 = sywu::make_shared<IntrusiveTracker>();
+    auto tracker1 = comp::make_shared<Object>();
+    auto tracker2 = comp::make_shared<IntrusiveTracker>();
 
     auto deleter = [&tracker2]()
     {
@@ -227,10 +227,10 @@ TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_sharedTrackerPtr)
 // The application developer should be able to disconnect tracked slots in the slot to shich the tracker is bount to.
 TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_intrusiveTrackerPtr)
 {
-    using SignalType = sywu::Signal<void()>;
+    using SignalType = comp::Signal<void()>;
     SignalType signal;
-    auto tracker1 = sywu::make_shared<Object>();
-    auto tracker2 = sywu::make_intrusive<IntrusiveTracker>();
+    auto tracker1 = comp::make_shared<Object>();
+    auto tracker2 = comp::make_intrusive<IntrusiveTracker>();
 
     auto deleter = [&tracker2]()
     {
