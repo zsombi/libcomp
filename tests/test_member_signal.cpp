@@ -7,10 +7,10 @@ public:
     int voidMethodCallCount = 0;
     int intMethodValue = 0;
 
-    comp::MemberSignal<TestObject, void()> signal{*this};
-    comp::MemberSignal<TestObject, void(int)> intSignal{*this};
-    comp::MemberSignal<TestObject, void(int&)> intRefSignal{*this};
-    comp::MemberSignal<TestObject, void(int, std::string)> intStrSignal{*this};
+    comp::Signal<void(TestObject::*)()> signal{*this};
+    comp::Signal<void(TestObject::*)(int)> intSignal{*this};
+    comp::Signal<void(TestObject::*)(int&)> intRefSignal{*this};
+    comp::Signal<void(TestObject::*)(int, std::string)> intStrSignal{*this};
 
     void voidMethod()
     {
@@ -21,11 +21,6 @@ public:
         intMethodValue = value;
     }
 };
-
-template class comp::MemberSignal<TestObject, void()>;
-template class comp::MemberSignal<TestObject, void(int)>;
-template class comp::MemberSignal<TestObject, void(int&)>;
-template class comp::MemberSignal<TestObject, void(int, std::string)>;
 
 class MemberSignalTest : public SignalTest
 {
@@ -103,7 +98,7 @@ TEST_F(MemberSignalTest, deleteSenderObjectFromSlot)
 // The application developer should be able to delete a dynamic signal member of the sender object.
 TEST_F(MemberSignalTest, deleteSenderSignalInSlot)
 {
-    using SignalType = comp::MemberSignal<TestObject, void()>;
+    using SignalType = comp::Signal<void(TestObject::*)()>;
     auto dynamicSignal = comp::make_unique<SignalType>(*object);
 
     auto killSignal = [&dynamicSignal]()
@@ -126,7 +121,7 @@ TEST_F(MemberSignalTest, deleteSenderSignalInSlot)
 class Object : public comp::enable_shared_from_this<Object>
 {
 public:
-    using SignalType = comp::MemberSignal<Object, void()>;
+    using SignalType = comp::Signal<void(Object::*)()>;
 
     explicit Object()
         : d(new Pimpl(*this))

@@ -2,8 +2,6 @@
 
 The library is a header-only c++ library, which contains signals, slots and properties.
 
-[TOC]
-
 ## Signals and Slots
 
 The main goal is to provide a design where you can
@@ -48,12 +46,12 @@ comp::Signal<int(int, std::string_view, int&)> signal;
 comp::Signal<void()> fireAndForget;
 ```
 
-To declare a signal that locks its host object when activated, use MemberSignal.
+To declare a signal that locks its host object when activated.
 ```cpp
 class Socket : public comp::enable_shared_from_this<Socket>
 {
 public:
-    comp::MemberSignal<Socket, void(int)> opened {*this};
+    comp::Signal<void(Socket::*)(int)> opened {*this};
     
     int open()
     {
@@ -308,9 +306,6 @@ signal();
 ```
 
 The same applies to intrusive pointers, see [this](./examples/track_intrusive_tracker/example.cpp) example.
-
-### Define the signal in PIMPL
-TBA
 
 ## Licensing
 The library is provided as is, under MIT license.

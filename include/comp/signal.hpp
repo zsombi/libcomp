@@ -12,6 +12,7 @@ template <typename ReturnType, typename... Arguments>
 class Signal;
 
 /// The signal template. Use this template to define a signal with a signature.
+/// \tparam ReturnType The return type of the signal.
 /// \tparam Arguments The arguments of the signal, which is the signature of the signal.
 template <typename ReturnType, typename... Arguments>
 class COMP_TEMPLATE_API Signal<ReturnType(Arguments...)> : public SignalConcept<mutex, ReturnType, Arguments...>
@@ -21,21 +22,22 @@ public:
     explicit Signal() = default;
 };
 
-template <class SignalHost, typename ReturnType, typename... Arguments>
-class MemberSignal;
-/// Use this template to create a member signal on a class that derives from enable_shared_from_this<>.
+/// Use this template variant to create a member signal on a class that derives from enable_shared_from_this<>.
+/// The signal makes sure the sender object is kept alive for the signal activation time. Do not use this signal
+/// declaration if the signal is activated in the destructor.
 /// \tparam SignalHost The class on which the member signal is defined.
+/// \tparam ReturnType The return type of the signal.
 /// \tparam Arguments The arguments of the signal, which is the signature of the signal.
 template <class SignalHost, typename ReturnType, typename... Arguments>
-class COMP_TEMPLATE_API MemberSignal<SignalHost, ReturnType(Arguments...)> : public SignalConcept<mutex, ReturnType, Arguments...>
+class Signal<ReturnType(SignalHost::*)(Arguments...)> : public SignalConcept<mutex, ReturnType, Arguments...>
 {
     using BaseClass = SignalConcept<mutex, ReturnType, Arguments...>;
     SignalHost& m_host;
 
 public:
-    /// Constructor
-    explicit MemberSignal(SignalHost& signalHost)
-        : m_host(signalHost)
+    /// Constructor.
+    explicit Signal(SignalHost& host)
+        : m_host(host)
     {
     }
 

@@ -465,7 +465,7 @@ public:
 class Server : public Base
 {
 public:
-    comp::MemberSignal<Server, void()> closed{*this};
+    comp::Signal<void(Server::*)()> closed{*this};
     explicit Server() = default;
 };
 
@@ -497,7 +497,7 @@ public:
     class Object : public comp::enable_shared_from_this<Object>
     {
     public:
-        comp::MemberSignal<Object, int()> intSignal{*this};
+        comp::Signal<int(Object::*)()> intSignal{*this};
     };
 
     comp::Signal<int()> intSignal;
@@ -577,4 +577,10 @@ TEST_F(TestEmitWithCollector, summResults_MemberSignal)
 {
     auto collector = object->intSignal.operator()<Summ>();
     EXPECT_EQ(11, collector.grandTotal);
+}
+
+TEST_F(SignalTest, signal2)
+{
+    auto object = comp::make_shared<Object1>();
+    comp::Signal<void(Object1::*)()> sig(*object);
 }
