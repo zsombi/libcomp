@@ -16,6 +16,10 @@ set(HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/concept/signal.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/config.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/signal.hpp
+    #PROPERTY
+
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/concept/property.hpp
+
     )
 
 set(PRIVATE_HEADERS
