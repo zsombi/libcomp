@@ -9,6 +9,11 @@
 
 #include <mutex>
 
+#else
+
+#include <comp/wrap/functional.hpp>
+#include <comp/wrap/tuple.hpp>
+
 #endif
 
 namespace comp
@@ -18,6 +23,7 @@ namespace comp
 
 using std::mutex;
 using std::lock_guard;
+using std::scoped_lock;
 
 #else
 
@@ -40,6 +46,42 @@ public:
     COMP_DISABLE_COPY(lock_guard);
 private:
     mutex_type& m_mutex;
+};
+
+template <typename... Mutexes>
+class COMP_TEMPLATE_API scoped_lock
+{
+    static_assert(sizeof...(Mutexes) > 1, "At least 2 lock types required");
+    using MutexTuple = tuple<Mutexes&...>;
+
+public:
+    explicit scoped_lock(Mutexes&... args)
+        : m_mutexes(args...)
+    {
+        apply([](auto ...x){make_tuple(x.lock()...);} , m_mutexes);
+    }
+
+    ~scoped_lock()
+    {
+        apply([](auto ...x){make_tuple(x.unlock()...);} , m_mutexes);
+    }
+
+    scoped_lock(scoped_lock const&) = delete;
+    scoped_lock& operator=(scoped_lock const&) = delete;
+
+private:
+//    static void lock(MutexTuple)
+//    {
+//        get<Index>(mutexes...).lock();
+//    }
+
+//    template <size_t ...Index>
+//    static void unlock(__tuple_indices<Index...>, MutexTuple& mutexes)
+//    {
+//        get<Index>(mutexes...).unlock();
+//    }
+
+    MutexTuple m_mutexes;
 };
 
 #endif
@@ -124,6 +166,26 @@ public:
     {
         return m_mutex.try_lock();
     }
+};
+
+
+template <typename T>
+class ScopeValue
+{
+public:
+    explicit ScopeValue(T& variable, T value)
+        : m_variable(variable)
+        , m_previousValue(m_variable)
+    {
+        m_variable = value;
+    }
+    ~ScopeValue()
+    {
+        m_variable = m_previousValue;
+    }
+private:
+    T& m_variable;
+    T m_previousValue;
 };
 
 } // namespace comp
