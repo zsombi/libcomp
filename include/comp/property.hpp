@@ -50,9 +50,10 @@ private:
 
 /// The Property provides you property management in COMP.
 template <typename T>
-class COMP_TEMPLATE_API Property final : public PropertyCore<T>
+class COMP_TEMPLATE_API Property final : public PropertyConcept<T>
 {
-    using Base = PropertyCore<T>;
+    using Base = PropertyConcept<T>;
+
     COMP_DISABLE_MOVE(Property);
 
 public:
@@ -61,7 +62,7 @@ public:
     /// Creates a property with an optional initial \a value.
     /// \param value The initial value of the property.
     explicit Property(const DataType& initialValue = DataType())
-        : Base(make_unique<PropertyData<T>>(initialValue))
+        : Base(make_shared<PropertyData<T>>(initialValue))
     {
     }
     /// Creates a property with a custom property value.
@@ -91,10 +92,7 @@ public:
     void operator=(DataType const& value)
     {
         this->discard();
-        if (this->getActiveValue()->set(value))
-        {
-            this->changed(value);
-        }
+        this->getActiveValue()->set(value);
     }
 
     /// Sets the value of a property from the value of an other property of the same type.
@@ -107,10 +105,26 @@ public:
     }
 };
 
-template <typename DataProvider>
-class COMP_TEMPLATE_API State
+template <typename T>
+class COMP_TEMPLATE_API State : public StateConcept<T>
 {
+    using Base = StateConcept<T>;
+
 public:
+    using DataType = T;
+    /// Constructor, creates a state using a property value.
+    /// \param propertyValue The property value which provides the value of the property.
+    explicit State(PropertyValuePtr<T> propertyValue)
+        : Base(propertyValue)
+    {
+    }
+
+    /// Property getter.
+    /// \return The value of the property.
+    operator DataType() const
+    {
+        return this->m_value->evaluate();
+    }
 };
 
 } // comp

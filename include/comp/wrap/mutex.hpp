@@ -168,26 +168,6 @@ public:
     }
 };
 
-
-template <typename T>
-class ScopeValue
-{
-public:
-    explicit ScopeValue(T& variable, T value)
-        : m_variable(variable)
-        , m_previousValue(m_variable)
-    {
-        m_variable = value;
-    }
-    ~ScopeValue()
-    {
-        m_variable = m_previousValue;
-    }
-private:
-    T& m_variable;
-    T m_previousValue;
-};
-
 } // namespace comp
 
 #endif // COMP_MUTEX_HPP

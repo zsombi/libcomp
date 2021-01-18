@@ -2,6 +2,7 @@
 #define COMP_PROPERTY_IMPL_HPP
 
 #include <comp/concept/property.hpp>
+#include <comp/utility/scope_value.hpp>
 #include <comp/wrap/algorithm.hpp>
 #include <comp/wrap/type_traits.hpp>
 #include <comp/wrap/utility.hpp>
@@ -12,15 +13,19 @@ namespace comp
 template <typename T>
 T PropertyValue<T>::evaluate()
 {
+    lock_guard lock(*this);
     ScopeValue guard(m_status, PropertyValueStatus::Evaluating);
     return evaluateOverride();
 }
 
 template <typename T>
-bool PropertyValue<T>::set(const DataType& value)
+void PropertyValue<T>::set(const DataType& value)
 {
     lock_guard lock(*this);
-    return setOverride(value);
+    if (setOverride(value) && isActive())
+    {
+        m_target->changed(value);
+    }
 }
 
 template <typename T>
@@ -75,13 +80,22 @@ void PropertyValue<T>::detach()
  *
  */
 template <typename T>
-PropertyCore<T>::PropertyCore(ValuePtr defaultValue)
+StateConcept<T>::StateConcept(typename Base::ValuePtr propertyValue)
+    : m_value(propertyValue)
 {
-    addPropertyValue(defaultValue);
+    m_value->attach(*this);
+    m_value->activate();
+}
+
+
+template <typename T>
+PropertyConcept<T>::PropertyConcept(typename Base::ValuePtr propertyValue)
+{
+    addPropertyValue(propertyValue);
 }
 
 template <typename T>
-void PropertyCore<T>::addPropertyValue(ValuePtr propertyValue)
+void PropertyConcept<T>::addPropertyValue(typename Base::ValuePtr propertyValue)
 {
     m_vp.push_back(propertyValue);
     m_vp.back()->attach(*this);
@@ -97,7 +111,7 @@ void PropertyCore<T>::addPropertyValue(ValuePtr propertyValue)
 }
 
 template <typename T>
-void PropertyCore<T>::removePropertyValue(PropertyValue<T>& propertyValue)
+void PropertyConcept<T>::removePropertyValue(PropertyValue<T>& propertyValue)
 {
     auto choseNewActive = propertyValue.isActive();
     auto detach = [&propertyValue](auto vp)
@@ -120,7 +134,7 @@ void PropertyCore<T>::removePropertyValue(PropertyValue<T>& propertyValue)
 }
 
 template <typename T>
-void PropertyCore<T>::discard()
+void PropertyConcept<T>::discard()
 {
     auto checkNewActive = false;
     auto predicate = [&checkNewActive](auto& vp)
@@ -146,7 +160,7 @@ void PropertyCore<T>::discard()
 }
 
 template <typename T>
-typename PropertyCore<T>::ValuePtr PropertyCore<T>::getActiveValue() const
+typename PropertyCore<T>::ValuePtr PropertyConcept<T>::getActiveValue() const
 {
     return m_active.lock();
 }

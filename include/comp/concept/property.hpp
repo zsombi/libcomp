@@ -67,7 +67,7 @@ public:
     /// Stores a value in the property value.
     /// \param value The value to store in the property value.
     /// \return If the property value is changed, returns \e true, otherwise \e false.
-    bool set(const DataType& value);
+    void set(const DataType& value);
 
     /// Swaps the data of two property values.
     void swap(PropertyValue& other);
@@ -119,9 +119,6 @@ using PropertyValuePtr = shared_ptr<PropertyValue<T>>;
 template <typename T>
 using PropertyValueWeakPtr = weak_ptr<PropertyValue<T>>;
 
-/// The PropertyCore template defines the core functionality of the properties. Provides property value
-/// provider management, as well as notification of the property value changes.
-/// A property must have at least one property value provider with WriteBehavior::Keep.
 template <typename T>
 class COMP_TEMPLATE_API PropertyCore
 {
@@ -129,13 +126,42 @@ public:
     using ValuePtr = PropertyValuePtr<T>;
     using ChangedSignal = Signal<void(T const&)>;
 
-    /// The property changed signal emitted when the value of the property is changed. The signal is also
+    /// The changed signal emits when the value of the property is changed. The signal is also
     /// emitted when the active property value is changed.
     ChangedSignal changed;
 
+protected:
+    explicit PropertyCore() = default;
+};
+
+/// The StateConcept template defines the core functionality of state properties. State properties are read-only
+/// properties. State properties have a single property value provider. To set the value of the property, use the
+/// set method of the property value provider you pass to the constructor.
+template <typename T>
+class COMP_TEMPLATE_API StateConcept : public PropertyCore<T>
+{
+    using Base = PropertyCore<T>;
+
+protected:
+    /// Constructor.
+    explicit StateConcept(typename Base::ValuePtr propertyValue);
+
+    /// The property value provider.
+    typename Base::ValuePtr m_value;
+};
+
+/// The PropertyConcept template defines the core functionality of the properties. Provides property value
+/// provider management, as well as notification of the property value changes.
+/// A property must have at least one property value provider with WriteBehavior::Keep.
+template <typename T>
+class COMP_TEMPLATE_API PropertyConcept : public PropertyCore<T>
+{
+    using Base = PropertyCore<T>;
+
+public:
     /// Adds a property value to a property. The property value becomes the active property value.
     /// \param propertyValue The property value to add.
-    void addPropertyValue(ValuePtr propertyValue);
+    void addPropertyValue(typename Base::ValuePtr propertyValue);
 
     /// Removes a property value from a property. If the property value is the active property value,
     /// the last added property value becomes the active property value for the property.
@@ -144,18 +170,18 @@ public:
 
 protected:
     /// Constructor.
-    explicit PropertyCore(ValuePtr defaultValue);
+    explicit PropertyConcept(typename Base::ValuePtr defaultValue);
 
     /// Removes the discardable property values. Makes the last added value provider that is kept as
     /// the active value provider.
     void discard();
 
     /// Returns the active property value of the property.
-    ValuePtr getActiveValue() const;
+    typename Base::ValuePtr getActiveValue() const;
 
     struct VPNullCheck
     {
-        bool operator()(ValuePtr propertyValue)
+        bool operator()(typename Base::ValuePtr propertyValue)
         {
             return !propertyValue;
         }
@@ -163,14 +189,14 @@ protected:
 
     struct VPInvalidator
     {
-        void operator()(ValuePtr& propertyValue)
+        void operator()(typename Base::ValuePtr& propertyValue)
         {
             propertyValue->detach();
             propertyValue.reset();
         }
     };
 
-    ZeroSafeContainer<ValuePtr, VPNullCheck, VPInvalidator> m_vp;
+    ZeroSafeContainer<typename Base::ValuePtr, VPNullCheck, VPInvalidator> m_vp;
     PropertyValueWeakPtr<T> m_active;
 };
 

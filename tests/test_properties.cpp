@@ -60,35 +60,35 @@ TEST(PropertyTest, changedSignalEmitsOnPropertyCopy)
     EXPECT_TRUE(changed);
 }
 
+struct UserData : public comp::PropertyValue<int>
+{
+    int m_data = -1;
+    explicit UserData(comp::WriteBehavior writeBehavior) :
+        comp::PropertyValue<int>(writeBehavior)
+    {
+    }
+    DataType evaluateOverride() override
+    {
+        return m_data;
+    }
+    bool setOverride(const DataType& data) override
+    {
+        if (m_data == data)
+        {
+            return false;
+        }
+        m_data = data;
+        return true;
+    }
+    void swapOverride(PropertyValue<int>& other) override
+    {
+        comp::swap(m_data, static_cast<UserData&>(other).m_data);
+    }
+};
+
 class PropertyValueTest : public ::testing::Test
 {
 public:
-    struct UserData : public comp::PropertyValue<int>
-    {
-        int m_data = -1;
-        explicit UserData(comp::WriteBehavior writeBehavior) :
-            comp::PropertyValue<int>(writeBehavior)
-        {
-        }
-        DataType evaluateOverride() override
-        {
-            return m_data;
-        }
-        bool setOverride(const DataType& data) override
-        {
-            if (m_data == data)
-            {
-                return false;
-            }
-            m_data = data;
-            return true;
-        }
-        void swapOverride(PropertyValue<int>& other) override
-        {
-            comp::swap(m_data, static_cast<UserData&>(other).m_data);
-        }
-    };
-
     comp::Property<int> simple;
     comp::shared_ptr<UserData> propertyValue;
     comp::Property<int> userData;
@@ -154,4 +154,28 @@ TEST_F(PropertyValueTest, removeOriginalValueManually)
     EXPECT_EQ(0u, userDataChangeCount);
     EXPECT_EQ(comp::PropertyValueStatus::Detached, propertyValue->getStatus());
     EXPECT_EQ(comp::PropertyValueStatus::Active, value->getStatus());
+}
+
+class StatePropertyTest : public ::testing::Test
+{
+public:
+    comp::shared_ptr<UserData> propertyValue;
+    comp::State<int> state;
+    size_t stateChangeCount = 0u;
+
+    explicit StatePropertyTest()
+        : propertyValue(comp::make_shared<UserData>(comp::WriteBehavior::Keep))
+        , state(propertyValue)
+    {
+        state.changed.connect(SignalChangeCount<int>(stateChangeCount));
+    }
+};
+
+TEST_F(StatePropertyTest, stateChanged)
+{
+    EXPECT_EQ(-1, state);
+
+    propertyValue->set(10);
+    EXPECT_EQ(10, state);
+    EXPECT_EQ(1u, stateChangeCount);
 }
