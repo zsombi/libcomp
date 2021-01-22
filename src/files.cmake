@@ -18,6 +18,7 @@ set(HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/utility/scope_value.hpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/concept/signal.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/concept/expression_binding.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/config.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/signal.hpp
     #PROPERTY

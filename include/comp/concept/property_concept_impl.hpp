@@ -7,80 +7,104 @@
 #include <comp/wrap/type_traits.hpp>
 #include <comp/wrap/utility.hpp>
 
+#include <comp/concept/expression_binding.hpp>
+
 namespace comp
 {
 
-template <typename T>
-T PropertyValue<T>::evaluate()
+template <typename T, typename LockType>
+void PropertyValue<T, LockType>::setState(PropertyValueState state)
 {
-    lock_guard lock(*this);
-    ScopeValue guard(m_status, PropertyValueStatus::Evaluating);
-    return evaluateOverride();
+    m_state = state;
+    onStateChanged(m_state);
 }
 
-template <typename T>
-void PropertyValue<T>::set(const DataType& value)
+template <typename T, typename LockType>
+T PropertyValue<T, LockType>::evaluate()
+{
+    lock_guard lock(*this);
+    // Do not allow the property to add or remove value providers till this property value is evaluating.
+    lock_guard superLock(*m_target);
+
+    auto result = T();
+    {
+        ScopeValue guard(m_state, PropertyValueState::Evaluating);
+        onStateChanged(m_state);
+
+        disconnectTrackedSlots();
+
+        if (BindingScope::current)
+        {
+            auto connection = BindingScope::trackPropertyChange(m_target->changed);
+            Tracker::track(connection);
+        }
+
+        result = evaluateOverride();
+    }
+    onStateChanged(m_state);
+    return result;
+}
+
+template <typename T, typename LockType>
+void PropertyValue<T, LockType>::set(const DataType& value)
 {
     lock_guard lock(*this);
     if (setOverride(value) && isActive())
     {
-        m_target->changed(value);
+        m_target->changed();
     }
 }
 
-template <typename T>
-void PropertyValue<T>::swap(PropertyValue& other)
+template <typename T, typename LockType>
+bool PropertyValue<T, LockType>::isActive() const
 {
-    swapOverride(other);
+    COMP_ASSERT(m_state == PropertyValueState::Active || m_state == PropertyValueState::Inactive || m_state == PropertyValueState::Evaluating);
+    return m_state == PropertyValueState::Active || m_state == PropertyValueState::Evaluating;
 }
 
-template <typename T>
-bool PropertyValue<T>::isActive() const
+template <typename T, typename LockType>
+void PropertyValue<T, LockType>::activate()
 {
-    COMP_ASSERT(m_status == PropertyValueStatus::Active || m_status == PropertyValueStatus::Inactive || m_status == PropertyValueStatus::Evaluating);
-    return m_status == PropertyValueStatus::Active || m_status == PropertyValueStatus::Evaluating;
-}
-
-template <typename T>
-void PropertyValue<T>::activate()
-{
-    COMP_ASSERT(m_status == PropertyValueStatus::Active || m_status == PropertyValueStatus::Inactive);
-    if (m_status == PropertyValueStatus::Inactive)
+    COMP_ASSERT(m_state == PropertyValueState::Active || m_state == PropertyValueState::Inactive);
+    if (m_state == PropertyValueState::Inactive)
     {
-        m_status = PropertyValueStatus::Active;
-        m_target->changed(evaluate());
+        setState(PropertyValueState::Active);
+        evaluate();
+        m_target->changed();
     }
 }
 
-template <typename T>
-void PropertyValue<T>::deactivate()
+template <typename T, typename LockType>
+void PropertyValue<T, LockType>::deactivate()
 {
-    COMP_ASSERT(m_status == PropertyValueStatus::Active);
-    m_status = PropertyValueStatus::Inactive;
+    COMP_ASSERT(m_state == PropertyValueState::Active);
+    setState(PropertyValueState::Inactive);
 }
 
-template <typename T>
-void PropertyValue<T>::attach(PropertyCore<T>& property)
+template <typename T, typename LockType>
+void PropertyValue<T, LockType>::attach(Core& property)
 {
-    COMP_ASSERT(m_status == PropertyValueStatus::Detached);
-    m_status = PropertyValueStatus::Attaching;
+    COMP_ASSERT(m_state == PropertyValueState::Detached);
+    setState(PropertyValueState::Attaching);
     m_target = &property;
-    m_status = PropertyValueStatus::Inactive;
+    setState(PropertyValueState::Inactive);
 }
 
-template <typename T>
-void PropertyValue<T>::detach()
+template <typename T, typename LockType>
+void PropertyValue<T, LockType>::detach()
 {
-    COMP_ASSERT(m_status != PropertyValueStatus::Detached || m_status != PropertyValueStatus::Detaching);
-    m_status = PropertyValueStatus::Detaching;
-    m_status = PropertyValueStatus::Detached;
+    COMP_ASSERT(m_state != PropertyValueState::Detached || m_state != PropertyValueState::Detaching);
+    setState(PropertyValueState::Detaching);
+    disconnectTrackedSlots();
+    m_target = nullptr;
+    setState(PropertyValueState::Detached);
 }
 
 /***********
  *
  */
-template <typename T>
-StateConcept<T>::StateConcept(typename Base::ValuePtr propertyValue)
+template <typename T, typename LockType>
+StateConcept<T, LockType>::StateConcept(typename Base::ValuePtr propertyValue)
     : m_value(propertyValue)
 {
     m_value->attach(*this);
@@ -88,15 +112,17 @@ StateConcept<T>::StateConcept(typename Base::ValuePtr propertyValue)
 }
 
 
-template <typename T>
-PropertyConcept<T>::PropertyConcept(typename Base::ValuePtr propertyValue)
+template <typename T, typename LockType>
+PropertyConcept<T, LockType>::PropertyConcept(typename Base::ValuePtr propertyValue)
 {
     addPropertyValue(propertyValue);
 }
 
-template <typename T>
-void PropertyConcept<T>::addPropertyValue(typename Base::ValuePtr propertyValue)
+template <typename T, typename LockType>
+void PropertyConcept<T, LockType>::addPropertyValue(typename Base::ValuePtr propertyValue)
 {
+    lock_guard lock(*this);
+
     m_vp.push_back(propertyValue);
     m_vp.back()->attach(*this);
 
@@ -107,12 +133,16 @@ void PropertyConcept<T>::addPropertyValue(typename Base::ValuePtr propertyValue)
     }
 
     m_active = m_vp.back();
+
+    relock_guard relock(*this);
     propertyValue->activate();
 }
 
-template <typename T>
-void PropertyConcept<T>::removePropertyValue(PropertyValue<T>& propertyValue)
+template <typename T, typename LockType>
+void PropertyConcept<T, LockType>::removePropertyValue(PropertyValue<T, LockType>& propertyValue)
 {
+    lock_guard lock(*this);
+
     auto choseNewActive = propertyValue.isActive();
     auto detach = [&propertyValue](auto vp)
     {
@@ -133,9 +163,11 @@ void PropertyConcept<T>::removePropertyValue(PropertyValue<T>& propertyValue)
     }
 }
 
-template <typename T>
-void PropertyConcept<T>::discard()
+template <typename T, typename LockType>
+void PropertyConcept<T, LockType>::discard()
 {
+    lock_guard lock(*this);
+
     auto checkNewActive = false;
     auto predicate = [&checkNewActive](auto& vp)
     {
@@ -155,14 +187,25 @@ void PropertyConcept<T>::discard()
     if (checkNewActive)
     {
         m_active = m_vp.back();
+        relock_guard relock(*this);
         m_active.lock()->activate();
     }
 }
 
-template <typename T>
-typename PropertyCore<T>::ValuePtr PropertyConcept<T>::getActiveValue() const
+template <typename T, typename LockType>
+typename PropertyCore<T, LockType>::ValuePtr PropertyConcept<T, LockType>::getActiveValue() const
 {
     return m_active.lock();
+}
+
+template <typename T, typename LockType>
+template <class Expression>
+enable_if_t<is_function_v<Expression> || function_traits<Expression>::type == Functor, PropertyValuePtr<T, LockType>>
+PropertyConcept<T, LockType>::bind(Expression expression)
+{
+    auto binding = ExpressionBinding<T, LockType, Expression>::create(expression);
+    addPropertyValue(binding);
+    return binding;
 }
 
 } // comp

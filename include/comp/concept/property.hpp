@@ -3,6 +3,7 @@
 
 #include <comp/config.hpp>
 #include <comp/wrap/mutex.hpp>
+#include <comp/wrap/function_traits.hpp>
 #include <comp/concept/zero_safe_container.hpp>
 #include <comp/signal.hpp>
 
@@ -10,7 +11,7 @@ namespace comp
 {
 
 /// The enum defines the status of a property value.
-enum class PropertyValueStatus
+enum class PropertyValueState
 {
     /// The property value is detached.
     Detached,
@@ -35,17 +36,20 @@ enum class WriteBehavior
     Discard
 };
 
-template <typename T>
+template <typename T, typename LockType>
 class PropertyCore;
+
+typedef Signal<void()> ChangeSignalType;
 
 /// The PropertyValue template defines the interface of property values. Property values are interfaces
 /// that provide the actual value of a property. A property may have several property value providers, of
 /// which only one is active.
-template <typename T>
-class COMP_TEMPLATE_API PropertyValue : public Lockable<mutex>, public enable_shared_from_this<PropertyValue<T>>
+template <typename T, typename LockType>
+class COMP_TEMPLATE_API PropertyValue : public Lockable<LockType>, public Tracker, public enable_shared_from_this<PropertyValue<T, LockType>>
 {
 public:
     using DataType = T;
+    using Core = PropertyCore<T, LockType>;
 
     /// The behavior of the property value when the property setter is invoked.
     const WriteBehavior writeBehavior = WriteBehavior::Discard;
@@ -55,9 +59,14 @@ public:
 
     /// Returns the status of the property value.
     /// \return The status of the property value.
-    PropertyValueStatus getStatus() const
+    PropertyValueState getState() const
     {
-        return m_status;
+        return m_state;
+    }
+
+    Core* getProperty() const
+    {
+        return m_target;
     }
 
     /// Evaluates the property value, and returns the evaluated value, which represents the value of the property.
@@ -69,9 +78,6 @@ public:
     /// \return If the property value is changed, returns \e true, otherwise \e false.
     void set(const DataType& value);
 
-    /// Swaps the data of two property values.
-    void swap(PropertyValue& other);
-
     /// Checks if the property value is the active property value.
     bool isActive() const;
 
@@ -82,7 +88,7 @@ public:
     void deactivate();
 
     /// Attaches the property value to a \a property. The property value must not be attached to any property.
-    void attach(PropertyCore<T>& property);
+    void attach(Core& property);
 
     /// Detaches the property value from a property.
     void detach();
@@ -104,31 +110,75 @@ protected:
     /// Value setter overridable.
     virtual bool setOverride(const DataType&) = 0;
 
-    /// Value swapper overridable.
-    virtual void swapOverride(PropertyValue&) = 0;
+    /// Methoid called when the state is changed.
+    virtual void onStateChanged(PropertyValueState /*state*/)
+    {
+    }
     /// \}
 
     /// The target property to which the property value is attached.
-    PropertyCore<T>* m_target = nullptr;
-    /// The status of a property value.
-    PropertyValueStatus m_status = PropertyValueStatus::Detached;
+    Core* m_target = nullptr;
+    /// The state of a property value.
+    PropertyValueState m_state = PropertyValueState::Detached;
+
+private:
+    void setState(PropertyValueState state);
 };
 
-template <typename T>
-using PropertyValuePtr = shared_ptr<PropertyValue<T>>;
-template <typename T>
-using PropertyValueWeakPtr = weak_ptr<PropertyValue<T>>;
+template <typename T, typename LockType>
+using PropertyValuePtr = shared_ptr<PropertyValue<T, LockType>>;
+template <typename T, typename LockType>
+using PropertyValueWeakPtr = weak_ptr<PropertyValue<T, LockType>>;
 
-template <typename T>
-class COMP_TEMPLATE_API PropertyCore
+class COMP_API BindingScope final
 {
 public:
-    using ValuePtr = PropertyValuePtr<T>;
-    using ChangedSignal = Signal<void(T const&)>;
+    static inline void* current = nullptr;
+
+    template <typename T, typename LockType>
+    BindingScope(PropertyValue<T, LockType>* valueProvider)
+        : previousValue(current)
+        , previousChangeSignal(targetChangeSignal)
+        , previousTracker(targetTracker)
+    {
+        current = valueProvider;
+        targetChangeSignal = &valueProvider->getProperty()->changed;
+        targetTracker = valueProvider;
+    }
+
+    ~BindingScope()
+    {
+        current = previousValue;
+        targetChangeSignal = previousChangeSignal;
+        targetTracker = previousTracker;
+    }
+
+    static Connection trackPropertyChange(ChangeSignalType& sourceSignal)
+    {
+        auto connection = sourceSignal.connect(*targetChangeSignal);
+        connection.bind(targetTracker);
+        return connection;
+    }
+
+private:
+    void* previousValue = nullptr;
+    ChangeSignalType* previousChangeSignal = nullptr;
+    Tracker* previousTracker = nullptr;
+
+    static inline ChangeSignalType* targetChangeSignal = nullptr;
+    static inline Tracker* targetTracker = nullptr;
+};
+
+
+template <typename T, typename LockType>
+class COMP_TEMPLATE_API PropertyCore : public Lockable<LockType>
+{
+public:
+    using ValuePtr = PropertyValuePtr<T, LockType>;
 
     /// The changed signal emits when the value of the property is changed. The signal is also
     /// emitted when the active property value is changed.
-    ChangedSignal changed;
+    ChangeSignalType changed;
 
 protected:
     explicit PropertyCore() = default;
@@ -137,10 +187,10 @@ protected:
 /// The StateConcept template defines the core functionality of state properties. State properties are read-only
 /// properties. State properties have a single property value provider. To set the value of the property, use the
 /// set method of the property value provider you pass to the constructor.
-template <typename T>
-class COMP_TEMPLATE_API StateConcept : public PropertyCore<T>
+template <typename T, typename LockType>
+class COMP_TEMPLATE_API StateConcept : public PropertyCore<T, LockType>
 {
-    using Base = PropertyCore<T>;
+    using Base = PropertyCore<T, LockType>;
 
 protected:
     /// Constructor.
@@ -153,10 +203,10 @@ protected:
 /// The PropertyConcept template defines the core functionality of the properties. Provides property value
 /// provider management, as well as notification of the property value changes.
 /// A property must have at least one property value provider with WriteBehavior::Keep.
-template <typename T>
-class COMP_TEMPLATE_API PropertyConcept : public PropertyCore<T>
+template <typename T, typename LockType>
+class COMP_TEMPLATE_API PropertyConcept : public PropertyCore<T, LockType>
 {
-    using Base = PropertyCore<T>;
+    using Base = PropertyCore<T, LockType>;
 
 public:
     /// Adds a property value to a property. The property value becomes the active property value.
@@ -166,7 +216,11 @@ public:
     /// Removes a property value from a property. If the property value is the active property value,
     /// the last added property value becomes the active property value for the property.
     /// \param propertyValue The property value to remove.
-    void removePropertyValue(PropertyValue<T>& propertyValue);
+    void removePropertyValue(PropertyValue<T, LockType>& propertyValue);
+
+    template <class Expression>
+    enable_if_t<is_function_v<Expression> || function_traits<Expression>::type == Functor, PropertyValuePtr<T, LockType>>
+    bind(Expression expression);
 
 protected:
     /// Constructor.
@@ -197,7 +251,7 @@ protected:
     };
 
     ZeroSafeContainer<typename Base::ValuePtr, VPNullCheck, VPInvalidator> m_vp;
-    PropertyValueWeakPtr<T> m_active;
+    PropertyValueWeakPtr<T, LockType> m_active;
 };
 
 } // namespace comp

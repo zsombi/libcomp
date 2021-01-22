@@ -24,6 +24,8 @@ using std::is_class;
 using std::is_class_v;
 using std::remove_const_t;
 using std::remove_reference_t;
+using std::is_function;
+using std::is_function_v;
 using std::is_member_function_pointer;
 using std::is_member_function_pointer_v;
 using std::is_pointer;

@@ -7,52 +7,40 @@
 namespace comp
 {
 
-namespace
-{
-
-template <typename T>
-class COMP_TEMPLATE_API PropertyData : public PropertyValue<T>
-{
-    using Base = PropertyValue<T>;
-
-public:
-    explicit PropertyData(T const& value)
-        : Base(WriteBehavior::Keep)
-        , m_data(value)
-    {
-    }
-
-protected:
-    typename Base::DataType evaluateOverride() override
-    {
-        return m_data;
-    }
-    bool setOverride(const typename Base::DataType & value) override
-    {
-        if (m_data != value)
-        {
-            m_data.store(value);
-            return true;
-        }
-        return false;
-    }
-    void swapOverride(PropertyValue<T>& other) override
-    {
-//        scoped_lock lock(*this, other);
-        static_cast<PropertyData&>(other).m_data = m_data.exchange(static_cast<PropertyData&>(other).m_data);
-    }
-
-private:
-    atomic<T> m_data = T();
-};
-
-}
-
 /// The Property provides you property management in COMP.
 template <typename T>
-class COMP_TEMPLATE_API Property final : public PropertyConcept<T>
+class COMP_TEMPLATE_API Property final : public PropertyConcept<T, mutex>
 {
-    using Base = PropertyConcept<T>;
+    using Base = PropertyConcept<T, mutex>;
+    using ValueTypePtr = PropertyValuePtr<T, mutex>;
+
+    class COMP_TEMPLATE_API Data : public PropertyValue<T, mutex>
+    {
+    public:
+        explicit Data(T const& value)
+            : PropertyValue<T, mutex>(WriteBehavior::Keep)
+            , m_data(value)
+        {
+        }
+
+    protected:
+        T evaluateOverride() override
+        {
+            return m_data;
+        }
+        bool setOverride(const T& value) override
+        {
+            if (m_data != value)
+            {
+                m_data.store(value);
+                return true;
+            }
+            return false;
+        }
+
+    private:
+        atomic<T> m_data = T();
+    };
 
     COMP_DISABLE_MOVE(Property);
 
@@ -62,13 +50,13 @@ public:
     /// Creates a property with an optional initial \a value.
     /// \param value The initial value of the property.
     explicit Property(const DataType& initialValue = DataType())
-        : Base(make_shared<PropertyData<T>>(initialValue))
+        : Base(make_shared<Data>(initialValue))
     {
     }
     /// Creates a property with a custom property value.
     /// \param propertyValue The property value with which the property is created. The property value must
     /// have #WriteBehavior::Keep write behavior.
-    explicit Property(PropertyValuePtr<T> propertyValue)
+    explicit Property(ValueTypePtr propertyValue)
         : Base(propertyValue)
     {
         COMP_ASSERT(propertyValue->writeBehavior == WriteBehavior::Keep);
@@ -106,15 +94,15 @@ public:
 };
 
 template <typename T>
-class COMP_TEMPLATE_API State : public StateConcept<T>
+class COMP_TEMPLATE_API State : public StateConcept<T, mutex>
 {
-    using Base = StateConcept<T>;
+    using Base = StateConcept<T, mutex>;
 
 public:
     using DataType = T;
     /// Constructor, creates a state using a property value.
     /// \param propertyValue The property value which provides the value of the property.
-    explicit State(PropertyValuePtr<T> propertyValue)
+    explicit State(PropertyValuePtr<T, mutex> propertyValue)
         : Base(propertyValue)
     {
     }

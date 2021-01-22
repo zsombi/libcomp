@@ -148,6 +148,10 @@ public:
     {
         m_trackedSlots.push_back(Connection(slot));
     }
+    void track(Connection connection)
+    {
+        m_trackedSlots.push_back(connection);
+    }
 
     /// Detaches the slot from the trackable.
     void untrack(SlotPtr slot) override

@@ -54,7 +54,6 @@ public:
     }
 };
 
-template <typename T>
 struct SignalChangeCount
 {
     size_t& callCount;
@@ -62,7 +61,7 @@ struct SignalChangeCount
         : callCount(counter)
     {
     }
-    void operator()(const T&)
+    void operator()()
     {
         ++callCount;
     }

@@ -12,6 +12,8 @@ using std::ref;
 using std::cref;
 using std::reference_wrapper;
 
+using std::function;
+
 } // namesace comp
 
 #endif // COMP_FUNCTIONAL_HPP
