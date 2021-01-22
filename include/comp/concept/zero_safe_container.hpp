@@ -12,7 +12,7 @@
 namespace comp
 {
 
-namespace
+namespace detail
 {
 
 template <typename T>
@@ -29,7 +29,7 @@ struct ZeroSet
 {
     void operator()(T& v)
     {
-        if constexpr (is_shared_ptr<T>::value)
+        if constexpr (is_shared_ptr_v<T> || is_weak_ptr_v<T>)
         {
             v.reset();
         }
@@ -48,11 +48,11 @@ struct ZeroSet
     }
 };
 
-}
+} // detail
 
 template <typename Type,
-          typename NullChecker = NullCheck<Type>,
-          typename Invalidator = ZeroSet<Type>>
+          typename NullChecker = detail::NullCheck<Type>,
+          typename Invalidator = detail::ZeroSet<Type>>
 class COMP_TEMPLATE_API ZeroSafeContainer
 {
     using Self = ZeroSafeContainer<Type, NullChecker, Invalidator>;
@@ -80,7 +80,7 @@ public:
         return m_container;
     }
 
-    int lockCount() const
+    size_t lockCount() const
     {
         return m_refCount;
     }
@@ -92,10 +92,17 @@ public:
 
     void unlock()
     {
-        if (--m_refCount <= 0 && m_dirtyCount)
+        if (--m_refCount <= 0 && m_dirtyCount > 0u)
         {
+            if (m_dirtyCount == m_container.size())
+            {
+                m_container.clear();
+            }
+            else
+            {
+                erase_if(m_container, NullChecker());
+            }
             m_dirtyCount = 0;
-            erase_if(m_container, NullChecker());
         }
     }
 
@@ -166,10 +173,15 @@ public:
         m_dirtyCount += distance(first, last);
     }
 
+    void clear()
+    {
+        erase(m_container.begin(), m_container.end());
+    }
+
 private:
     ContainerType m_container;
-    int m_refCount = 0;
-    int m_dirtyCount = 0;
+    size_t m_refCount = 0;
+    size_t m_dirtyCount = 0;
 
     COMP_DISABLE_COPY(ZeroSafeContainer)
 
