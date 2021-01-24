@@ -174,6 +174,14 @@ template <typename LockType, typename ReturnType, typename... Arguments>
 void SlotConcept<LockType, ReturnType, Arguments...>::disconnect()
 {
     lock_guard lock(*this);
+    if (m_signal)
+    {
+        auto signal = m_signal;
+        m_signal = nullptr;
+        relock_guard relock(*this);
+        signal->disconnect(Connection(shared_from_this()));
+    }
+
     auto isConnected = m_isConnected.exchange(false);
     if (!isConnected)
     {

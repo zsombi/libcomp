@@ -15,10 +15,10 @@ jobs:
       run: |
         mkdir ../build
         cd ../build
-        cmake -DBUILD_GMOCK=OFF -DINSTALL_GTEST=ON -DCOMP_TESTS=ON -DCOMP_EXAMPLES=ON ../sywu
+        cmake -DBUILD_GMOCK=OFF -DINSTALL_GTEST=ON -DCOMP_TESTS=ON -DCOMP_EXAMPLES=ON ../comp
     - name: Build debug
       run: |
-        cmake -DBUILD_GMOCK=OFF -DINSTALL_GTEST=ON -DCOMP_TESTS=ON -DCOMP_EXAMPLES=ON ../sywu
+        cmake -DBUILD_GMOCK=OFF -DINSTALL_GTEST=ON -DCOMP_TESTS=ON -DCOMP_EXAMPLES=ON ../comp
         cmake --build . --config Debug --target all
     - name: Run connect example
       run: |

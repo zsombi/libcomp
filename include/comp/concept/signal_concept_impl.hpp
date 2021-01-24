@@ -35,8 +35,9 @@ class COMP_TEMPLATE_API FunctionSlot final : public SlotConcept<LockType, Return
     }
 
 public:
-    explicit FunctionSlot(const FunctionType& function)
-        : m_function(function)
+    explicit FunctionSlot(core::Signal& signal, const FunctionType& function)
+        : SlotConcept<LockType, ReturnType, Arguments...>(signal)
+        , m_function(function)
     {
     }
 
@@ -70,8 +71,9 @@ class COMP_TEMPLATE_API MethodSlot final : public SlotConcept<LockType, ReturnTy
     }
 
 public:
-    explicit MethodSlot(shared_ptr<TargetObject> target, const FunctionType& function)
-        : m_target(target)
+    explicit MethodSlot(core::Signal& signal, shared_ptr<TargetObject> target, const FunctionType& function)
+        : SlotConcept<LockType, ReturnType, Arguments...>(signal)
+        , m_target(target)
         , m_function(function)
     {
     }
@@ -97,8 +99,9 @@ class COMP_TEMPLATE_API SignalSlot final : public SlotConcept<LockType, ReturnTy
     }
 
 public:
-    explicit SignalSlot(ReceiverSignal& receiver)
-        : m_receiver(&receiver)
+    explicit SignalSlot(core::Signal& signal, ReceiverSignal& receiver)
+        : SlotConcept<LockType, ReturnType, Arguments...>(signal)
+        , m_receiver(&receiver)
     {
     }
 
@@ -131,9 +134,8 @@ SignalConcept<LockType, ReturnType, Arguments...>::~SignalConcept()
 
     while (!m_slots.empty())
     {
-        auto slot = m_slots.back();
-        m_slots.pop_back();
-        slot->disconnect();
+        relock_guard relock(*this);
+        disconnect(Connection(m_slots.back()));
     }
 }
 
@@ -215,7 +217,7 @@ SignalConcept<LockType, ReturnType, Arguments...>::connect(shared_ptr<typename f
         is_same_v<ReturnType, SlotReturnType>,
         "Incompatible slot signature");
 
-    auto slot = make_shared<SlotInterface, MethodSlot<Object, FunctionType, LockType, SlotReturnType, Arguments...>>(receiver, method);
+    auto slot = make_shared<SlotInterface, MethodSlot<Object, FunctionType, LockType, SlotReturnType, Arguments...>>(*this, receiver, method);
     slot->bind(receiver);
     return addSlot(slot);
 }
@@ -231,7 +233,7 @@ SignalConcept<LockType, ReturnType, Arguments...>::connect(const FunctionType& f
         is_same_v<ReturnType, SlotReturnType>,
         "Incompatible slot signature");
 
-    auto slot = make_shared<SlotInterface, FunctionSlot<FunctionType, LockType, SlotReturnType, Arguments...>>(function);
+    auto slot = make_shared<SlotInterface, FunctionSlot<FunctionType, LockType, SlotReturnType, Arguments...>>(*this, function);
     return addSlot(slot);
 }
 
@@ -239,7 +241,7 @@ template <class LockType, typename ReturnType, typename... Arguments>
 Connection SignalConcept<LockType, ReturnType, Arguments...>::connect(SignalConcept& receiver)
 {
     using ReceiverSignal = SignalConcept;
-    auto slot = make_shared<SlotInterface, SignalSlot<ReceiverSignal, LockType, ReturnType, Arguments...>>(receiver);
+    auto slot = make_shared<SlotInterface, SignalSlot<ReceiverSignal, LockType, ReturnType, Arguments...>>(*this, receiver);
     receiver.track(slot);
     return addSlot(slot);
 }
@@ -247,10 +249,22 @@ Connection SignalConcept<LockType, ReturnType, Arguments...>::connect(SignalConc
 template <class LockType, typename ReturnType, typename... Arguments>
 void SignalConcept<LockType, ReturnType, Arguments...>::disconnect(Connection connection)
 {
-    lock_guard lock(*this);
     auto slot = connection.get();
+    if (!slot)
+    {
+        return;
+    }
+    else
+    {
+        lock_guard lock(*this);
+        auto it = find(m_slots, slot);
+        if (it == m_slots.end())
+        {
+            return;
+        }
+        erase(m_slots, slot);
+    }
     connection.disconnect();
-    erase(m_slots, slot);
 }
 
 } // namespace comp

@@ -11,10 +11,25 @@
 namespace comp
 {
 
+// Forward declarations.
 class Connection;
 class SlotInterface;
 using SlotPtr = shared_ptr<SlotInterface>;
 using SlotWeakPtr = weak_ptr<SlotInterface>;
+
+namespace core
+{
+
+/// Core of the signals.
+class COMP_API Signal
+{
+public:
+    virtual ~Signal() = default;
+
+    virtual void disconnect(Connection) = 0;
+};
+
+} // core
 
 /// ConnectionTracker interface.
 struct COMP_API TrackerInterface
@@ -55,10 +70,15 @@ public:
 
 protected:
     /// Constructor.
-    explicit SlotInterface() = default;
+    explicit SlotInterface(core::Signal& signal)
+        : m_signal(&signal)
+    {
+    }
 
     /// Adds a tracker to the slot.
     virtual void addTracker(TrackerPtr&&) = 0;
+
+    core::Signal* m_signal = nullptr;
 };
 
 /// The Connection holds a slot connected to a signal. It is a token to a receiver slot connected to
@@ -272,6 +292,11 @@ public:
     void disconnect() final;
 
 protected:
+    explicit SlotConcept(core::Signal& signal)
+        : SlotInterface(signal)
+    {
+    }
+
     /// To implement slot specific activation, override this method.
     virtual ReturnType activateOverride(Arguments&&...) = 0;
 
@@ -290,7 +315,7 @@ private:
 /// The SignalConcept defines the concept of a signal. Defined as a lockable for convenience, holds the
 /// connections of the signal.
 template <class LockType, typename ReturnType, typename... Arguments>
-class COMP_TEMPLATE_API SignalConcept : public Lockable<LockType>, public ConnectionTracker
+class COMP_TEMPLATE_API SignalConcept : public Lockable<LockType>, public core::Signal, public ConnectionTracker
 {
 public:
     using SlotType = SlotConcept<LockType, ReturnType, Arguments...>;
@@ -348,7 +373,7 @@ public:
 
     /// Disconnects the \a connection passed as argument.
     /// \param connection The connection to disconnect. The connection is invalidated and removed from the signal.
-    void disconnect(Connection connection);
+    void disconnect(Connection connection) override;
 
 protected:
     /// Constructor.
