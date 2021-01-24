@@ -32,17 +32,17 @@ constexpr bool is_valid_trackable_arg = (
 struct PtrTracker final : TrackerInterface
 {
     TrackerInterface* trackable = nullptr;
-    explicit PtrTracker(Tracker* trackable)
+    explicit PtrTracker(ConnectionTracker* trackable)
         : trackable(trackable)
     {
     }
-    void track(SlotPtr slot)
+    void track(Connection connection)
     {
-        trackable->track(slot);
+        trackable->track(connection);
     }
-    void untrack(SlotPtr slot)
+    void untrack(Connection connection)
     {
-        trackable->untrack(slot);
+        trackable->untrack(connection);
     }
     bool isValid() const
     {
@@ -58,23 +58,23 @@ struct WeakPtrTracker final : TrackerInterface
         : trackable(trackable)
     {
     }
-    void track(SlotPtr slot)
+    void track(Connection connection)
     {
-        COMP_UNUSED(slot);
+        COMP_UNUSED(connection);
         if constexpr (is_trackable_class_v<Type>)
         {
-            trackable.lock()->track(slot);
+            trackable.lock()->track(connection);
         }
     }
-    void untrack(SlotPtr slot)
+    void untrack(Connection connection)
     {
-        COMP_UNUSED(slot);
+        COMP_UNUSED(connection);
         if constexpr (is_trackable_class_v<Type>)
         {
             auto locked = trackable.lock();
             if (locked)
             {
-                locked->untrack(slot);
+                locked->untrack(connection);
             }
         }
     }
@@ -92,13 +92,13 @@ struct IntrusivePtrTracker final : TrackerInterface
         : trackable(trackable)
     {
     }
-    void track(SlotPtr slot)
+    void track(Connection connection)
     {
-        trackable->track(slot);
+        trackable->track(connection);
     }
-    void untrack(SlotPtr slot)
+    void untrack(Connection connection)
     {
-        trackable->untrack(slot);
+        trackable->untrack(connection);
     }
     bool isValid() const
     {

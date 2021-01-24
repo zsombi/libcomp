@@ -1,7 +1,7 @@
 #include <comp/signal.hpp>
 #include <iostream>
 
-class Object : public comp::Tracker, public comp::enable_intrusive_ptr
+class Object : public comp::ConnectionTracker, public comp::enable_intrusive_ptr
 {
 public:
     explicit Object() = default;
@@ -11,13 +11,13 @@ int main()
 {
     comp::Signal<void()> signal;
 
-    auto object = comp::make_shared<comp::Tracker, Object>();
+    auto object = comp::make_shared<comp::ConnectionTracker, Object>();
 
     // Note: capture shared objects as weak pointer!
     auto slot = [locked = object]()
     {
         std::puts("Disconnect slots tracked.");
-        locked->disconnectTrackedSlots();
+        locked->disconnectTrackedConnections();
     };
 
     // Connect slot and bind tracker.

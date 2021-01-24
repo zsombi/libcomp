@@ -1,7 +1,7 @@
 #include <comp/signal.hpp>
 #include <iostream>
 
-class Object : public comp::Tracker
+class Object : public comp::ConnectionTracker
 {
 public:
     explicit Object() = default;

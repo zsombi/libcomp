@@ -16,15 +16,15 @@ class SlotInterface;
 using SlotPtr = shared_ptr<SlotInterface>;
 using SlotWeakPtr = weak_ptr<SlotInterface>;
 
-/// Tracker interface.
+/// ConnectionTracker interface.
 struct COMP_API TrackerInterface
 {
     /// Destructor.
     virtual ~TrackerInterface() = default;
     /// Attaches a slot to a tracker.
-    virtual void track(SlotPtr) = 0;
+    virtual void track(Connection) = 0;
     /// Detaches a slot from a tracker.
-    virtual void untrack(SlotPtr) = 0;
+    virtual void untrack(Connection) = 0;
     /// Returns the valid state of a tracker. A tracker is valid when it tracks a valid object.
     /// \return If the tracker is valid, returns \e true, otherwise \e false.
     virtual bool isValid() const = 0;
@@ -45,8 +45,8 @@ public:
     virtual void disconnect() = 0;
 
     /// Binds a tracker object to the slot. The tracker object is either a shared pointer, a weak pointer,
-    /// or a Tracker derived object.
-    /// \tparam TrackerType The type of the tracker, a shared_ptr, weak_ptr, or a pointer to the Tracker
+    /// or a ConnectionTracker derived object.
+    /// \tparam TrackerType The type of the tracker, a shared_ptr, weak_ptr, or a pointer to the ConnectionTracker
     ///         derived object.
     /// \param tracker The tracker to bind to the slot.
     /// \see Connection::bind()
@@ -102,12 +102,12 @@ public:
     /// slot is only activated if all the objects used in the slot function are valid, bind trackers.
     ///
     /// A tracker is either
-    /// - a pointer to a class derived from Tracker; the pointer is either a raw pointer, a shared pointer or an intrusive
+    /// - a pointer to a class derived from ConnectionTracker; the pointer is either a raw pointer, a shared pointer or an intrusive
     ///   pointer
     /// - a shared or weak pointer of an arbitrar object.
     ///
     /// You can use the same tracker to track multiple slots. To disconnect the slots tracked by a tracker that is derived
-    /// from Tracker, call #Tracker::disconnectTrackedSlots(). Slots tracked by a shared pointer are disconnected only when
+    /// from ConnectionTracker, call #ConnectionTracker::disconnectTrackedConnections(). Slots tracked by a shared pointer are disconnected only when
     /// that shared pointer is deleted.
     ///
     /// To untrack a slot in all its trackers, disconnect that slot.
@@ -133,36 +133,36 @@ private:
 /// To track the lifetime of a connection based on an arbitrary object that is not a smart pointer,
 /// use this class. The class disconnects all tracked slots on destruction.
 /// You can bind trackers to a connection using the #Connection::bind() method, by passing the pointer
-/// to the Tracker object as argument of the method.
-class COMP_API Tracker : public TrackerInterface
+/// to the ConnectionTracker object as argument of the method.
+class COMP_API ConnectionTracker : public TrackerInterface
 {
 public:
     /// Destructor.
-    ~Tracker()
+    ~ConnectionTracker()
     {
-        disconnectTrackedSlots();
+        disconnectTrackedConnections();
     }
 
-    /// Attaches a \a slot to the trackable.
-    void track(SlotPtr slot) override
+    /// Attaches a \a connection to the trackable.
+    void track(Connection connection) override
     {
-        m_trackedSlots.push_back(Connection(slot));
+        m_trackedConnections.push_back(connection);
     }
 
     /// Detaches the slot from the trackable.
-    void untrack(SlotPtr slot) override
+    void untrack(Connection connection) override
     {
-        erase_first(m_trackedSlots, Connection(slot));
+        erase_first(m_trackedConnections, connection);
     }
 
     /// Disconnects the attached slots. Call this method if you want to disconnect from the attached slot
     /// earlier than at the trackable destruction time.
-    void disconnectTrackedSlots()
+    void disconnectTrackedConnections()
     {
-        while (!m_trackedSlots.empty())
+        while (!m_trackedConnections.empty())
         {
-            auto connection = m_trackedSlots.back();
-            m_trackedSlots.pop_back();
+            auto connection = m_trackedConnections.back();
+            m_trackedConnections.pop_back();
 
             connection.disconnect();
         }
@@ -170,7 +170,7 @@ public:
 
 protected:
     /// Constructor.
-    explicit Tracker() = default;
+    explicit ConnectionTracker() = default;
 
 private:
     /// This is valid as long as it exists.
@@ -178,7 +178,7 @@ private:
     {
         return true;
     }
-    vector<Connection> m_trackedSlots;
+    vector<Connection> m_trackedConnections;
 };
 
 /********************************************************************************
@@ -290,7 +290,7 @@ private:
 /// The SignalConcept defines the concept of a signal. Defined as a lockable for convenience, holds the
 /// connections of the signal.
 template <class LockType, typename ReturnType, typename... Arguments>
-class COMP_TEMPLATE_API SignalConcept : public Lockable<LockType>, public Tracker
+class COMP_TEMPLATE_API SignalConcept : public Lockable<LockType>, public ConnectionTracker
 {
 public:
     using SlotType = SlotConcept<LockType, ReturnType, Arguments...>;

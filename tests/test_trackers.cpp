@@ -4,13 +4,13 @@
 namespace
 {
 
-class TestTracker : public comp::Tracker
+class TestTracker : public comp::ConnectionTracker
 {
 public:
     explicit TestTracker() = default;
 };
 
-class IntrusiveTracker : public comp::Tracker, public comp::enable_intrusive_ptr
+class IntrusiveTracker : public comp::ConnectionTracker, public comp::enable_intrusive_ptr
 {
 public:
     explicit IntrusiveTracker() = default;
@@ -206,7 +206,7 @@ TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_sharedTrackerPtr)
 
     auto deleter = [&tracker2]()
     {
-        tracker2->disconnectTrackedSlots();
+        tracker2->disconnectTrackedConnections();
         tracker2.reset();
     };
 
@@ -234,7 +234,7 @@ TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_intrusiveTrackerPtr
 
     auto deleter = [&tracker2]()
     {
-        tracker2->disconnectTrackedSlots();
+        tracker2->disconnectTrackedConnections();
         tracker2.reset();
     };
 
