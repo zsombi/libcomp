@@ -61,22 +61,10 @@ struct WeakPtrTracker final : TrackerInterface
     void track(Connection connection)
     {
         COMP_UNUSED(connection);
-        if constexpr (is_trackable_class_v<Type>)
-        {
-            trackable.lock()->track(connection);
-        }
     }
     void untrack(Connection connection)
     {
         COMP_UNUSED(connection);
-        if constexpr (is_trackable_class_v<Type>)
-        {
-            auto locked = trackable.lock();
-            if (locked)
-            {
-                locked->untrack(connection);
-            }
-        }
     }
     bool isValid() const
     {
@@ -116,35 +104,39 @@ void SlotInterface::bind(TrackerType tracker)
 
     if constexpr (is_trackable_pointer_v<TrackerType>)
     {
-        auto _tracker = make_unique<PtrTracker>(tracker);
-        _tracker->track(shared_from_this());
-        addTracker(move(_tracker));
+        auto _tracker = make_shared<TrackerInterface, PtrTracker>(tracker);
+        tracker->track(shared_from_this());
+        addTracker(_tracker);
     }
     else if constexpr (is_weak_ptr_v<TrackerType> || is_shared_ptr_v<TrackerType>)
     {
         using Type = typename pointer_traits<TrackerType>::element_type;
-        auto _tracker = make_unique<WeakPtrTracker<Type>>(tracker);
         if constexpr (is_trackable_class_v<Type>)
         {
-            _tracker->track(shared_from_this());
+            tracker->track(shared_from_this());
+            addTracker(tracker);
         }
-        addTracker(move(_tracker));
+        else
+        {
+            auto _tracker = make_shared<TrackerInterface, WeakPtrTracker<Type>>(tracker);
+            addTracker(_tracker);
+        }
     }
     else if constexpr (is_intrusive_ptr_v<TrackerType>)
     {
         using Type = typename pointer_traits<TrackerType>::element_type;
-        auto _tracker = make_unique<IntrusivePtrTracker<Type>>(tracker);
-        _tracker->track(shared_from_this());
-        addTracker(move(_tracker));
+        auto _tracker = make_shared<TrackerInterface, IntrusivePtrTracker<Type>>(tracker);
+        tracker->track(shared_from_this());
+        addTracker(_tracker);
     }
 }
 
 
 template <typename LockType, typename ReturnType, typename... Arguments>
-void SlotConcept<LockType, ReturnType, Arguments...>::addTracker(TrackerPtr&& tracker)
+void SlotConcept<LockType, ReturnType, Arguments...>::addTracker(TrackerPtr tracker)
 {
     lock_guard lock(*this);
-    m_trackers.push_back(forward<TrackerPtr>(tracker));
+    m_trackers.push_back(tracker);
 }
 
 template <typename LockType, typename ReturnType, typename... Arguments>

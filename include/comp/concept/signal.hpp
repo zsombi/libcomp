@@ -44,7 +44,7 @@ struct COMP_API TrackerInterface
     /// \return If the tracker is valid, returns \e true, otherwise \e false.
     virtual bool isValid() const = 0;
 };
-using TrackerPtr = unique_ptr<TrackerInterface>;
+using TrackerPtr = shared_ptr<TrackerInterface>;
 
 /// Interface for slots.
 class COMP_API SlotInterface : public enable_shared_from_this<SlotInterface>
@@ -76,7 +76,7 @@ protected:
     }
 
     /// Adds a tracker to the slot.
-    virtual void addTracker(TrackerPtr&&) = 0;
+    virtual void addTracker(TrackerPtr) = 0;
 
     core::Signal* m_signal = nullptr;
 };
@@ -300,10 +300,10 @@ protected:
     /// To implement slot specific activation, override this method.
     virtual ReturnType activateOverride(Arguments&&...) = 0;
 
-    /// Implements SlotInterface::addTracker().
-    void addTracker(TrackerPtr&& tracker) final;
-
 private:
+    /// Implements SlotInterface::addTracker().
+    void addTracker(TrackerPtr tracker) final;
+
     /// The container with the binded trackers.
     using TrackersContainer = vector<TrackerPtr>;
 
