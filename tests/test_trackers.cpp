@@ -206,7 +206,7 @@ TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_sharedTrackerPtr)
 
     auto deleter = [&tracker2]()
     {
-        tracker2->disconnectTrackedSlots();
+        tracker2->disconnectTrackedConnections();
         tracker2.reset();
     };
 
@@ -234,7 +234,7 @@ TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_intrusiveTrackerPtr
 
     auto deleter = [&tracker2]()
     {
-        tracker2->disconnectTrackedSlots();
+        tracker2->disconnectTrackedConnections();
         tracker2.reset();
     };
 

@@ -22,7 +22,7 @@ int main()
             return;
         }
         std::puts("Disconnect slots tracked.");
-        locked->disconnectTrackedSlots();
+        locked->disconnectTrackedConnections();
     };
 
     // Connect slot and bind tracker.

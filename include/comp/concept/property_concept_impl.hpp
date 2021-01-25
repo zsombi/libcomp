@@ -26,23 +26,18 @@ T PropertyValue<T, LockType>::evaluate()
     // Do not allow the property to add or remove value providers till this property value is evaluating.
     lock_guard superLock(*m_target);
 
-    auto result = T();
+    if (m_guardEvaluate.isLocked())
     {
-        ScopeValue guard(m_state, PropertyValueState::Evaluating);
-        onStateChanged(m_state);
-
-        disconnectTrackedSlots();
-
-        if (BindingScope::current)
-        {
-            auto connection = BindingScope::trackPropertyChange(m_target->changed);
-            Tracker::track(connection);
-        }
-
-        result = evaluateOverride();
+        return T();
     }
-    onStateChanged(m_state);
-    return result;
+    lock_guard guard(m_guardEvaluate);
+
+    if (BindingScope::current)
+    {
+        BindingScope::trackProperty(*m_target);
+    }
+
+    return evaluateOverride();
 }
 
 template <typename T, typename LockType>
@@ -58,8 +53,8 @@ void PropertyValue<T, LockType>::set(const DataType& value)
 template <typename T, typename LockType>
 bool PropertyValue<T, LockType>::isActive() const
 {
-    COMP_ASSERT(m_state == PropertyValueState::Active || m_state == PropertyValueState::Inactive || m_state == PropertyValueState::Evaluating);
-    return m_state == PropertyValueState::Active || m_state == PropertyValueState::Evaluating;
+    COMP_ASSERT(m_state == PropertyValueState::Active || m_state == PropertyValueState::Inactive);
+    return m_state == PropertyValueState::Active;
 }
 
 template <typename T, typename LockType>
@@ -69,7 +64,6 @@ void PropertyValue<T, LockType>::activate()
     if (m_state == PropertyValueState::Inactive)
     {
         setState(PropertyValueState::Active);
-        evaluate();
         m_target->changed();
     }
 }
@@ -95,9 +89,31 @@ void PropertyValue<T, LockType>::detach()
 {
     COMP_ASSERT(m_state != PropertyValueState::Detached || m_state != PropertyValueState::Detaching);
     setState(PropertyValueState::Detaching);
-    disconnectTrackedSlots();
     m_target = nullptr;
     setState(PropertyValueState::Detached);
+}
+
+template <typename T, typename LockType>
+void PropertyValue<T, LockType>::onStateChanged(PropertyValueState state)
+{
+    switch (state)
+    {
+        case PropertyValueState::Active:
+        {
+            evaluate();
+            break;
+        }
+        case PropertyValueState::Inactive:
+        case PropertyValueState::Detaching:
+        {
+            disconnectTrackedConnections();
+            break;
+        }
+        default:
+        {
+            break;
+        }
+    }
 }
 
 /***********
@@ -139,27 +155,30 @@ void PropertyConcept<T, LockType>::addPropertyValue(typename Base::ValuePtr prop
 }
 
 template <typename T, typename LockType>
-void PropertyConcept<T, LockType>::removePropertyValue(PropertyValue<T, LockType>& propertyValue)
+void PropertyConcept<T, LockType>::removePropertyValue(property_core::Value& value)
 {
     lock_guard lock(*this);
 
-    auto choseNewActive = propertyValue.isActive();
-    auto detach = [&propertyValue](auto vp)
+    auto propertyValue = dynamic_cast<PropertyValue<T, LockType>*>(&value);
+
+    auto choseNewActive = propertyValue->isActive();
+    auto detach = [propertyValue](auto vp)
     {
-        if (vp.get() == &propertyValue)
+        if (vp.get() == propertyValue)
         {
             vp->detach();
             return true;
         }
         return false;
     };
-    find_if(m_vp, detach);
+    erase_if(m_vp, detach);
 
     if (choseNewActive)
     {
         auto last = m_vp.back();
-        last->activate();
         m_active = last;
+        relock_guard relock(*this);
+        last->activate();
     }
 }
 

@@ -17,7 +17,7 @@ int main()
     auto slot = [locked = object]()
     {
         std::puts("Disconnect slots tracked.");
-        locked->disconnectTrackedSlots();
+        locked->disconnectTrackedConnections();
     };
 
     // Connect slot and bind tracker.

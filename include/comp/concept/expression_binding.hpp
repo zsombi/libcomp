@@ -37,6 +37,12 @@ protected:
         COMP_ASSERT(false);
         return false;
     }
+
+    void removeSelf() override
+    {
+        this->getProperty()->removePropertyValue(*this);
+    }
+
     Expression m_expression;
 };
 

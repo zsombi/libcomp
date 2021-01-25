@@ -21,8 +21,6 @@ enum class PropertyValueState
     Detaching,
     /// The property value is attached, and it is the active property value.
     Active,
-    /// The property value is attached, active and evaluating.
-    Evaluating,
     /// The property value is attached and inactive.
     Inactive
 };
@@ -36,6 +34,32 @@ enum class WriteBehavior
     Discard
 };
 
+class BindingScope;
+
+namespace property_core
+{
+
+class COMP_API Value : public Tracker
+{
+//    friend class comp::BindingScope;
+
+public:
+    virtual ~Value() = default;
+    virtual void removeSelf() = 0;
+};
+
+class COMP_API Property
+{
+public:
+    virtual ~Property() = default;
+
+    virtual void removePropertyValue(Value& /*value*/)
+    {
+    }
+};
+
+} //
+
 template <typename T, typename LockType>
 class PropertyCore;
 
@@ -45,7 +69,7 @@ typedef Signal<void()> ChangeSignalType;
 /// that provide the actual value of a property. A property may have several property value providers, of
 /// which only one is active.
 template <typename T, typename LockType>
-class COMP_TEMPLATE_API PropertyValue : public Lockable<LockType>, public Tracker, public enable_shared_from_this<PropertyValue<T, LockType>>
+class COMP_TEMPLATE_API PropertyValue : public Lockable<LockType>, public property_core::Value, public enable_shared_from_this<PropertyValue<T, LockType>>
 {
 public:
     using DataType = T;
@@ -100,6 +124,14 @@ protected:
     {
     }
 
+    /// \name Binding handling methods
+    /// \{
+    void removeSelf() override
+    {
+        COMP_ASSERT(false);
+    }
+    /// \}
+
     /// \name Overridables
     /// \{
 
@@ -111,9 +143,7 @@ protected:
     virtual bool setOverride(const DataType&) = 0;
 
     /// Methoid called when the state is changed.
-    virtual void onStateChanged(PropertyValueState /*state*/)
-    {
-    }
+    virtual void onStateChanged(PropertyValueState state);
     /// \}
 
     /// The target property to which the property value is attached.
@@ -123,6 +153,9 @@ protected:
 
 private:
     void setState(PropertyValueState state);
+
+    /// Reentrance guard for evaluate.
+    FlagGuard m_guardEvaluate;
 };
 
 template <typename T, typename LockType>
@@ -133,37 +166,38 @@ using PropertyValueWeakPtr = weak_ptr<PropertyValue<T, LockType>>;
 class COMP_API BindingScope final
 {
 public:
-    static inline void* current = nullptr;
+    static inline property_core::Value* current = nullptr;
 
     template <typename T, typename LockType>
     BindingScope(PropertyValue<T, LockType>* valueProvider)
         : previousValue(current)
         , previousChangeSignal(targetChangeSignal)
-        , previousTracker(targetTracker)
     {
         current = valueProvider;
         targetChangeSignal = &valueProvider->getProperty()->changed;
-        targetTracker = valueProvider;
     }
 
     ~BindingScope()
     {
         current = previousValue;
         targetChangeSignal = previousChangeSignal;
-        targetTracker = previousTracker;
     }
 
-    static Connection trackPropertyChange(ChangeSignalType& sourceSignal)
+    template <typename T, typename LockType>
+    static void trackProperty(PropertyCore<T, LockType>& target)
     {
-        auto connection = sourceSignal.connect(*targetChangeSignal);
-        connection.bind(targetTracker);
-        return connection;
+        current->disconnectTrackedConnections();
+        current->track(target.changed.connect(*targetChangeSignal));
+        auto onSourceDeleted = [binding = current]()
+        {
+            binding->removeSelf();
+        };
+        current->track(target.deleted.connect(onSourceDeleted));
     }
 
 private:
-    void* previousValue = nullptr;
+    property_core::Value* previousValue = nullptr;
     ChangeSignalType* previousChangeSignal = nullptr;
-    Tracker* previousTracker = nullptr;
 
     static inline ChangeSignalType* targetChangeSignal = nullptr;
     static inline Tracker* targetTracker = nullptr;
@@ -171,8 +205,12 @@ private:
 
 
 template <typename T, typename LockType>
-class COMP_TEMPLATE_API PropertyCore : public Lockable<LockType>
+class COMP_TEMPLATE_API PropertyCore : public Lockable<LockType>, public property_core::Property
 {
+    template <typename, typename>
+    friend class PropertyValue;
+    friend class BindingScope;
+
 public:
     using ValuePtr = PropertyValuePtr<T, LockType>;
 
@@ -180,8 +218,15 @@ public:
     /// emitted when the active property value is changed.
     ChangeSignalType changed;
 
+    virtual ~PropertyCore()
+    {
+        deleted();
+    }
+
 protected:
     explicit PropertyCore() = default;
+
+    Signal<void()> deleted;
 };
 
 /// The StateConcept template defines the core functionality of state properties. State properties are read-only
@@ -215,8 +260,8 @@ public:
 
     /// Removes a property value from a property. If the property value is the active property value,
     /// the last added property value becomes the active property value for the property.
-    /// \param propertyValue The property value to remove.
-    void removePropertyValue(PropertyValue<T, LockType>& propertyValue);
+    /// \param value The property value to remove.
+    void removePropertyValue(property_core::Value& value);
 
     template <class Expression>
     enable_if_t<is_function_v<Expression> || function_traits<Expression>::type == Functor, PropertyValuePtr<T, LockType>>
@@ -233,24 +278,20 @@ protected:
     /// Returns the active property value of the property.
     typename Base::ValuePtr getActiveValue() const;
 
-    struct VPNullCheck
-    {
-        bool operator()(typename Base::ValuePtr propertyValue)
-        {
-            return !propertyValue;
-        }
-    };
-
     struct VPInvalidator
     {
         void operator()(typename Base::ValuePtr& propertyValue)
         {
+            if (!propertyValue)
+            {
+                return;
+            }
             propertyValue->detach();
             propertyValue.reset();
         }
     };
 
-    ZeroSafeContainer<typename Base::ValuePtr, VPNullCheck, VPInvalidator> m_vp;
+    ZeroSafeContainer<typename Base::ValuePtr, detail::NullCheck<typename Base::ValuePtr>, VPInvalidator> m_vp;
     PropertyValueWeakPtr<T, LockType> m_active;
 };
 

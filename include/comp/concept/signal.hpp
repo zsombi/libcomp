@@ -22,9 +22,9 @@ struct COMP_API TrackerInterface
     /// Destructor.
     virtual ~TrackerInterface() = default;
     /// Attaches a slot to a tracker.
-    virtual void track(SlotPtr) = 0;
+    virtual void track(Connection) = 0;
     /// Detaches a slot from a tracker.
-    virtual void untrack(SlotPtr) = 0;
+    virtual void untrack(Connection) = 0;
     /// Returns the valid state of a tracker. A tracker is valid when it tracks a valid object.
     /// \return If the tracker is valid, returns \e true, otherwise \e false.
     virtual bool isValid() const = 0;
@@ -107,7 +107,7 @@ public:
     /// - a shared or weak pointer of an arbitrar object.
     ///
     /// You can use the same tracker to track multiple slots. To disconnect the slots tracked by a tracker that is derived
-    /// from Tracker, call #Tracker::disconnectTrackedSlots(). Slots tracked by a shared pointer are disconnected only when
+    /// from Tracker, call #Tracker::disconnectTrackedConnections(). Slots tracked by a shared pointer are disconnected only when
     /// that shared pointer is deleted.
     ///
     /// To untrack a slot in all its trackers, disconnect that slot.
@@ -140,33 +140,29 @@ public:
     /// Destructor.
     ~Tracker()
     {
-        disconnectTrackedSlots();
+        disconnectTrackedConnections();
     }
 
     /// Attaches a \a slot to the trackable.
-    void track(SlotPtr slot) override
+    void track(Connection connection) override
     {
-        m_trackedSlots.push_back(Connection(slot));
-    }
-    void track(Connection connection)
-    {
-        m_trackedSlots.push_back(connection);
+        m_trackedConnections.push_back(connection);
     }
 
     /// Detaches the slot from the trackable.
-    void untrack(SlotPtr slot) override
+    void untrack(Connection connection) override
     {
-        erase_first(m_trackedSlots, Connection(slot));
+        erase_first(m_trackedConnections, connection);
     }
 
     /// Disconnects the attached slots. Call this method if you want to disconnect from the attached slot
     /// earlier than at the trackable destruction time.
-    void disconnectTrackedSlots()
+    void disconnectTrackedConnections()
     {
-        while (!m_trackedSlots.empty())
+        while (!m_trackedConnections.empty())
         {
-            auto connection = m_trackedSlots.back();
-            m_trackedSlots.pop_back();
+            auto connection = m_trackedConnections.back();
+            m_trackedConnections.pop_back();
 
             connection.disconnect();
         }
@@ -182,7 +178,7 @@ private:
     {
         return true;
     }
-    vector<Connection> m_trackedSlots;
+    vector<Connection> m_trackedConnections;
 };
 
 /********************************************************************************

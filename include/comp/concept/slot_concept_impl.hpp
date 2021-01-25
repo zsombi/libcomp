@@ -36,15 +36,15 @@ struct PtrTracker final : TrackerInterface
         : trackable(trackable)
     {
     }
-    void track(SlotPtr slot)
+    void track(Connection connection) override
     {
-        trackable->track(slot);
+        trackable->track(connection);
     }
-    void untrack(SlotPtr slot)
+    void untrack(Connection connection) override
     {
-        trackable->untrack(slot);
+        trackable->untrack(connection);
     }
-    bool isValid() const
+    bool isValid() const override
     {
         return true;
     }
@@ -58,27 +58,27 @@ struct WeakPtrTracker final : TrackerInterface
         : trackable(trackable)
     {
     }
-    void track(SlotPtr slot)
+    void track(Connection connection) override
     {
-        COMP_UNUSED(slot);
+        COMP_UNUSED(connection);
         if constexpr (is_trackable_class_v<Type>)
         {
-            trackable.lock()->track(slot);
+            trackable.lock()->track(connection);
         }
     }
-    void untrack(SlotPtr slot)
+    void untrack(Connection connection) override
     {
-        COMP_UNUSED(slot);
+        COMP_UNUSED(connection);
         if constexpr (is_trackable_class_v<Type>)
         {
             auto locked = trackable.lock();
             if (locked)
             {
-                locked->untrack(slot);
+                locked->untrack(connection);
             }
         }
     }
-    bool isValid() const
+    bool isValid() const override
     {
         return trackable.lock() != nullptr;
     }
@@ -92,15 +92,15 @@ struct IntrusivePtrTracker final : TrackerInterface
         : trackable(trackable)
     {
     }
-    void track(SlotPtr slot)
+    void track(Connection connection) override
     {
-        trackable->track(slot);
+        trackable->track(connection);
     }
-    void untrack(SlotPtr slot)
+    void untrack(Connection connection) override
     {
-        trackable->untrack(slot);
+        trackable->untrack(connection);
     }
-    bool isValid() const
+    bool isValid() const override
     {
         return trackable;
     }
