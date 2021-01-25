@@ -244,7 +244,7 @@ if (!connection)
 When the tracker is a shared pointer with Tracker as type, resetting the pointer of the tracker object 
 in the slot may not cause the pointer to release, if the use count of the shared pointer is high enough
 to keep the smartt pointer alive. If you want the tracker to "simulate" destruction, i.e you want to 
-make sure the tracker disconnects all the tracked objects, call Tracker::disconnectTrackedConnections() in
+make sure the tracker disconnects all the tracked objects, call ConnectionTracker::clearTrackables() in
 the slot.
 
 ```cpp
@@ -265,7 +265,7 @@ auto slot = [weakObject = comp::weak_ptr<comp::Tracker>(object)]()
     {
         return;
     }
-    locked->disconnectTrackedConnections();
+    locked->clearTrackables();
 };
 
 // Connect slot and bind tracker.

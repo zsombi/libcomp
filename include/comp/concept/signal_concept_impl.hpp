@@ -15,8 +15,8 @@ namespace comp
 namespace
 {
 
-template <typename FunctionType, typename LockType, typename ReturnType, typename... Arguments>
-class COMP_TEMPLATE_API FunctionSlot final : public SlotConcept<LockType, ReturnType, Arguments...>
+template <typename FunctionType, typename ReturnType, typename... Arguments>
+class COMP_TEMPLATE_API FunctionSlot final : public SlotConcept<ReturnType, Arguments...>
 {
     ReturnType activateOverride(Arguments&&... args) override
     {
@@ -36,7 +36,7 @@ class COMP_TEMPLATE_API FunctionSlot final : public SlotConcept<LockType, Return
 
 public:
     explicit FunctionSlot(core::Signal& signal, const FunctionType& function)
-        : SlotConcept<LockType, ReturnType, Arguments...>(signal)
+        : SlotConcept<ReturnType, Arguments...>(signal)
         , m_function(function)
     {
     }
@@ -45,8 +45,8 @@ private:
     FunctionType m_function;
 };
 
-template <class TargetObject, typename FunctionType, typename LockType, typename ReturnType, typename... Arguments>
-class COMP_TEMPLATE_API MethodSlot final : public SlotConcept<LockType, ReturnType, Arguments...>
+template <class TargetObject, typename FunctionType, typename ReturnType, typename... Arguments>
+class COMP_TEMPLATE_API MethodSlot final : public SlotConcept<ReturnType, Arguments...>
 {
     ReturnType activateOverride(Arguments&&... arguments) override
     {
@@ -72,7 +72,7 @@ class COMP_TEMPLATE_API MethodSlot final : public SlotConcept<LockType, ReturnTy
 
 public:
     explicit MethodSlot(core::Signal& signal, shared_ptr<TargetObject> target, const FunctionType& function)
-        : SlotConcept<LockType, ReturnType, Arguments...>(signal)
+        : SlotConcept<ReturnType, Arguments...>(signal)
         , m_target(target)
         , m_function(function)
     {
@@ -83,8 +83,8 @@ private:
     FunctionType m_function;
 };
 
-template <typename ReceiverSignal, typename LockType, typename ReturnType, typename... Arguments>
-class COMP_TEMPLATE_API SignalSlot final : public SlotConcept<LockType, ReturnType, Arguments...>
+template <typename ReceiverSignal, typename ReturnType, typename... Arguments>
+class COMP_TEMPLATE_API SignalSlot final : public SlotConcept<ReturnType, Arguments...>
 {
     ReturnType activateOverride(Arguments&&... arguments) override
     {
@@ -100,7 +100,7 @@ class COMP_TEMPLATE_API SignalSlot final : public SlotConcept<LockType, ReturnTy
 
 public:
     explicit SignalSlot(core::Signal& signal, ReceiverSignal& receiver)
-        : SlotConcept<LockType, ReturnType, Arguments...>(signal)
+        : SlotConcept<ReturnType, Arguments...>(signal)
         , m_receiver(&receiver)
     {
     }
@@ -127,8 +127,9 @@ bool Collector<DerivedCollector>::collect(SlotType& slot, Arguments&&... argumen
     }
 }
 
-template <class LockType, typename ReturnType, typename... Arguments>
-SignalConcept<LockType, ReturnType, Arguments...>::~SignalConcept()
+
+template <typename ReturnType, typename... Arguments>
+SignalConcept<ReturnType, Arguments...>::~SignalConcept()
 {
     lock_guard lock(*this);
 
@@ -139,9 +140,9 @@ SignalConcept<LockType, ReturnType, Arguments...>::~SignalConcept()
     }
 }
 
-template <class LockType, typename ReturnType, typename... Arguments>
+template <typename ReturnType, typename... Arguments>
 template <class Collector>
-Collector SignalConcept<LockType, ReturnType, Arguments...>::operator()(Arguments... arguments)
+Collector SignalConcept<ReturnType, Arguments...>::operator()(Arguments... arguments)
 {
     auto context = Collector();
 
@@ -194,8 +195,8 @@ Collector SignalConcept<LockType, ReturnType, Arguments...>::operator()(Argument
     return context;
 }
 
-template <class LockType, typename ReturnType, typename... Arguments>
-Connection SignalConcept<LockType, ReturnType, Arguments...>::addSlot(SlotPtr slot)
+template <typename ReturnType, typename... Arguments>
+Connection SignalConcept<ReturnType, Arguments...>::addSlot(SlotPtr slot)
 {
     auto slotActivator = dynamic_pointer_cast<SlotType>(slot);
     COMP_ASSERT(slotActivator);
@@ -204,10 +205,10 @@ Connection SignalConcept<LockType, ReturnType, Arguments...>::addSlot(SlotPtr sl
     return Connection(m_slots.back());
 }
 
-template <class LockType, typename ReturnType, typename... Arguments>
+template <typename ReturnType, typename... Arguments>
 template <class FunctionType>
 enable_if_t<is_member_function_pointer_v<FunctionType>, Connection>
-SignalConcept<LockType, ReturnType, Arguments...>::connect(shared_ptr<typename function_traits<FunctionType>::object> receiver, FunctionType method)
+SignalConcept<ReturnType, Arguments...>::connect(shared_ptr<typename function_traits<FunctionType>::object> receiver, FunctionType method)
 {
     using Object = typename function_traits<FunctionType>::object;
     using SlotReturnType = typename function_traits<FunctionType>::return_type;
@@ -217,15 +218,14 @@ SignalConcept<LockType, ReturnType, Arguments...>::connect(shared_ptr<typename f
         is_same_v<ReturnType, SlotReturnType>,
         "Incompatible slot signature");
 
-    auto slot = make_shared<SlotInterface, MethodSlot<Object, FunctionType, LockType, SlotReturnType, Arguments...>>(*this, receiver, method);
-    slot->bind(receiver);
-    return addSlot(slot);
+    auto slot = make_shared<core::Slot<mutex>, MethodSlot<Object, FunctionType, SlotReturnType, Arguments...>>(*this, receiver, method);
+    return addSlot(slot).bind(receiver);
 }
 
-template <class LockType, typename ReturnType, typename... Arguments>
+template <typename ReturnType, typename... Arguments>
 template <class FunctionType>
-enable_if_t<!is_base_of_v<SignalConcept<LockType, ReturnType, Arguments...>, FunctionType>, Connection>
-SignalConcept<LockType, ReturnType, Arguments...>::connect(const FunctionType& function)
+enable_if_t<!is_base_of_v<SignalConcept<ReturnType, Arguments...>, FunctionType>, Connection>
+SignalConcept<ReturnType, Arguments...>::connect(const FunctionType& function)
 {
     using SlotReturnType = typename function_traits<FunctionType>::return_type;
     static_assert(
@@ -233,21 +233,21 @@ SignalConcept<LockType, ReturnType, Arguments...>::connect(const FunctionType& f
         is_same_v<ReturnType, SlotReturnType>,
         "Incompatible slot signature");
 
-    auto slot = make_shared<SlotInterface, FunctionSlot<FunctionType, LockType, SlotReturnType, Arguments...>>(*this, function);
+    auto slot = make_shared<core::Slot<mutex>, FunctionSlot<FunctionType, SlotReturnType, Arguments...>>(*this, function);
     return addSlot(slot);
 }
 
-template <class LockType, typename ReturnType, typename... Arguments>
-Connection SignalConcept<LockType, ReturnType, Arguments...>::connect(SignalConcept& receiver)
+template <typename ReturnType, typename... Arguments>
+Connection SignalConcept<ReturnType, Arguments...>::connect(SignalConcept& receiver)
 {
     using ReceiverSignal = SignalConcept;
-    auto slot = make_shared<SlotInterface, SignalSlot<ReceiverSignal, LockType, ReturnType, Arguments...>>(*this, receiver);
-    receiver.track(slot);
+    auto slot = make_shared<core::Slot<mutex>, SignalSlot<ReceiverSignal, ReturnType, Arguments...>>(*this, receiver);
+    receiver.track(Connection(slot));
     return addSlot(slot);
 }
 
-template <class LockType, typename ReturnType, typename... Arguments>
-void SignalConcept<LockType, ReturnType, Arguments...>::disconnect(Connection connection)
+template <typename ReturnType, typename... Arguments>
+void SignalConcept<ReturnType, Arguments...>::disconnect(Connection connection)
 {
     auto slot = connection.get();
     if (!slot)
