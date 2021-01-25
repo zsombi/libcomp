@@ -1,16 +1,17 @@
 #include "test_base.hpp"
 #include <comp/signal.hpp>
+#include <comp/utility/tracker.hpp>
 
 namespace
 {
 
-class TestTracker : public comp::Tracker
+class TestTracker : public comp::ConnectionTracker
 {
 public:
     explicit TestTracker() = default;
 };
 
-class IntrusiveTracker : public comp::Tracker, public comp::enable_intrusive_ptr
+class IntrusiveTracker : public comp::ConnectionTracker, public comp::enable_intrusive_ptr
 {
 public:
     explicit IntrusiveTracker() = default;
@@ -29,6 +30,38 @@ class TrackerTest : public SignalTest
 public:
     explicit TrackerTest() = default;
 };
+
+struct Trackable : public comp::enable_intrusive_ptr
+{
+    void disconnect() {}
+};
+
+TEST(Tracker, is_tracker_connection)
+{
+    comp::Tracker<comp::Connection> tracker;
+    EXPECT_TRUE(comp::is_tracker_v<decltype(tracker)>);
+    EXPECT_TRUE(comp::is_tracker_v<comp::remove_pointer_t<decltype(tracker)>>);
+}
+TEST(Tracker, is_tracker_tracklable)
+{
+    comp::Tracker<Trackable> tracker;
+    EXPECT_TRUE(comp::is_tracker_v<decltype(tracker)>);
+}
+TEST(Tracker, is_tracker_tracklable_pointer)
+{
+    comp::Tracker<Trackable*> tracker;
+    EXPECT_TRUE(comp::is_tracker_v<decltype(tracker)>);
+}
+TEST(Tracker, is_tracker_shared_ptr_tracklable)
+{
+    comp::Tracker<comp::shared_ptr<Trackable>> tracker;
+    EXPECT_TRUE(comp::is_tracker_v<decltype(tracker)>);
+}
+TEST(Tracker, is_tracker_intrusive_ptr_tracklable)
+{
+    comp::Tracker<comp::intrusive_ptr<Trackable>> tracker;
+    EXPECT_TRUE(comp::is_tracker_v<decltype(tracker)>);
+}
 
 // The application developer should be able to bind trackables to the connection. Any tracker reset disconnects
 // the connection.
@@ -206,7 +239,7 @@ TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_sharedTrackerPtr)
 
     auto deleter = [&tracker2]()
     {
-        tracker2->disconnectTrackedSlots();
+        tracker2->clearTrackables();
         tracker2.reset();
     };
 
@@ -234,7 +267,7 @@ TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_intrusiveTrackerPtr
 
     auto deleter = [&tracker2]()
     {
-        tracker2->disconnectTrackedSlots();
+        tracker2->clearTrackables();
         tracker2.reset();
     };
 

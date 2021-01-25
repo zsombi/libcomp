@@ -13,6 +13,11 @@ set(HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/wrap/utility.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/wrap/vector.hpp
 
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/utility/lockable.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/utility/tracker.hpp
+
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/concept/core/signal.hpp
+
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/concept/signal.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/config.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/signal.hpp

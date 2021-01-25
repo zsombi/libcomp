@@ -28,6 +28,8 @@ using std::is_pointer;
 using std::is_pointer_v;
 using std::remove_pointer;
 using std::remove_pointer_t;
+using std::conditional;
+using std::conditional_t;
 
 } // namespace traits
 

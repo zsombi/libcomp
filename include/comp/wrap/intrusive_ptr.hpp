@@ -41,7 +41,7 @@ public:
         }
     }
 
-    intrusive_ptr(const intrusive_ptr<T>& rhs)
+    intrusive_ptr(const intrusive_ptr& rhs)
         : m_ptr(rhs.m_ptr)
     {
         if (m_ptr)
@@ -179,6 +179,10 @@ class enable_intrusive_ptr
 public:
     /// Constructor.
     explicit enable_intrusive_ptr() = default;
+    explicit enable_intrusive_ptr(const enable_intrusive_ptr& other)
+        : m_refCount(other.m_refCount.load())
+    {
+    }
     /// Destructor.
     ~enable_intrusive_ptr()
     {

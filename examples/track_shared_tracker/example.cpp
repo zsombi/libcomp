@@ -1,7 +1,7 @@
 #include <comp/signal.hpp>
 #include <iostream>
 
-class Object : public comp::Tracker, public comp::enable_shared_from_this<Object>
+class Object : public comp::ConnectionTracker, public comp::enable_shared_from_this<Object>
 {
 public:
     explicit Object() = default;
@@ -11,10 +11,10 @@ int main()
 {
     comp::Signal<void()> signal;
 
-    auto object = comp::make_shared<comp::Tracker, Object>();
+    auto object = comp::make_shared<comp::ConnectionTracker, Object>();
 
     // Note: capture shared objects as weak pointer!
-    auto slot = [weakObject = comp::weak_ptr<comp::Tracker>(object)]()
+    auto slot = [weakObject = comp::weak_ptr<comp::ConnectionTracker>(object)]()
     {
         auto locked = weakObject.lock();
         if (!locked)
@@ -22,7 +22,7 @@ int main()
             return;
         }
         std::puts("Disconnect slots tracked.");
-        locked->disconnectTrackedSlots();
+        locked->clearTrackables();
     };
 
     // Connect slot and bind tracker.
@@ -32,7 +32,7 @@ int main()
     signal();
 
     // Untrack the slot
-    auto untrackSlot = [weakObject = comp::weak_ptr<comp::Tracker>(object)](comp::Connection connection)
+    auto untrackSlot = [weakObject = comp::weak_ptr<comp::ConnectionTracker>(object)](comp::Connection connection)
     {
         auto locked = weakObject.lock();
         if (!locked)
