@@ -106,7 +106,7 @@ void PropertyValue<T, LockType>::onStateChanged(PropertyValueState state)
         case PropertyValueState::Inactive:
         case PropertyValueState::Detaching:
         {
-            disconnectTrackedConnections();
+            clearTrackables();
             break;
         }
         default:

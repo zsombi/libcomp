@@ -39,7 +39,7 @@ class BindingScope;
 namespace property_core
 {
 
-class COMP_API Value : public Tracker
+class COMP_API Value : public ConnectionTracker
 {
 //    friend class comp::BindingScope;
 
@@ -186,7 +186,7 @@ public:
     template <typename T, typename LockType>
     static void trackProperty(PropertyCore<T, LockType>& target)
     {
-        current->disconnectTrackedConnections();
+        current->clearTrackables();
         current->track(target.changed.connect(*targetChangeSignal));
         auto onSourceDeleted = [binding = current]()
         {
@@ -200,7 +200,7 @@ private:
     ChangeSignalType* previousChangeSignal = nullptr;
 
     static inline ChangeSignalType* targetChangeSignal = nullptr;
-    static inline Tracker* targetTracker = nullptr;
+    static inline ConnectionTracker* targetTracker = nullptr;
 };
 
 
