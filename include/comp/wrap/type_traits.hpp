@@ -34,6 +34,8 @@ using std::remove_pointer;
 using std::remove_pointer_t;
 using std::is_integral;
 using std::is_integral_v;
+using std::conditional;
+using std::conditional_t;
 
 } // namespace traits
 

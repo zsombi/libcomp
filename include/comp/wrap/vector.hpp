@@ -21,6 +21,13 @@ void for_each(const vector<Type, Allocator>& vector, const Predicate& predicate)
     for_each(vector.begin(), vector.end(), predicate);
 }
 
+/// Vector utility, finds a \a value in a \a vector
+template <typename Type, typename Allocator, typename VType>
+decltype(auto) find(vector<Type, Allocator>& vector, const VType& value)
+{
+    return find(vector.begin(), vector.end(), value);
+}
+
 /// Vector utility, loops a \a predicate through a \a vector.
 template <typename Type, typename Allocator, typename Predicate>
 decltype(auto) find_if(vector<Type, Allocator>& vector, const Predicate& predicate)

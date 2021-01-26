@@ -140,34 +140,6 @@ struct COMP_API FlagGuard : protected atomic_bool
 using mutex = FlagGuard;
 #endif
 
-/// Implements a lockable object.
-template <typename LockType>
-class COMP_API Lockable
-{
-    LockType m_mutex;
-
-    COMP_DISABLE_COPY_OR_MOVE(Lockable)
-
-public:
-    explicit Lockable() = default;
-    ~Lockable() = default;
-
-    void lock()
-    {
-        m_mutex.lock();
-    }
-
-    void unlock()
-    {
-        m_mutex.unlock();
-    }
-
-    bool try_lock()
-    {
-        return m_mutex.try_lock();
-    }
-};
-
 } // namespace comp
 
 #endif // COMP_MUTEX_HPP

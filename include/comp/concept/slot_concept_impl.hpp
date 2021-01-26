@@ -12,7 +12,7 @@ namespace
 {
 
 template <typename T>
-constexpr bool is_trackable_class_v = is_base_of_v<TrackerInterface, decay_t<T>>;
+constexpr bool is_trackable_class_v = is_base_of_v<ConnectionTracker, decay_t<T>>;
 
 template <typename T>
 constexpr bool is_trackable_pointer_v = is_pointer_v<T> && is_trackable_class_v<remove_pointer_t<T>>;
@@ -22,177 +22,87 @@ constexpr bool is_intrusive_trackable_pointer_v = is_intrusive_ptr_v<T> && is_tr
 
 template <typename T>
 constexpr bool is_valid_trackable_arg = (
-            is_trackable_class_v<T> ||
             is_trackable_pointer_v<T> ||
             is_intrusive_trackable_pointer_v<T> ||
             is_weak_ptr_v<T> ||
             is_shared_ptr_v<T>
             );
 
-struct PtrTracker final : TrackerInterface
+template <typename TrackedType>
+struct SlotTracker final : public core::Slot<mutex>::TrackerInterface
 {
-    TrackerInterface* trackable = nullptr;
-    explicit PtrTracker(Tracker* trackable)
-        : trackable(trackable)
-    {
-    }
-    void track(Connection connection) override
-    {
-        trackable->track(connection);
-    }
-    void untrack(Connection connection) override
-    {
-        trackable->untrack(connection);
-    }
-    bool isValid() const override
-    {
-        return true;
-    }
-};
+    using Base = typename core::Slot<mutex>::TrackerInterface;
+    using ManagedType = typename pointer_traits<TrackedType>::element_type;
+    using PointerType = conditional_t<is_shared_ptr_v<TrackedType>, weak_ptr<ManagedType>, TrackedType>;
+    static constexpr bool isTracker = is_trackable_class_v<ManagedType>;
 
-template <class Type>
-struct WeakPtrTracker final : TrackerInterface
-{
-    weak_ptr<Type> trackable;
-    explicit WeakPtrTracker(weak_ptr<Type> trackable)
-        : trackable(trackable)
+    Connection connection;
+    PointerType tracked;
+
+    static auto create(Connection connection, TrackedType tracked)
     {
-    }
-    void track(Connection connection) override
-    {
-        COMP_UNUSED(connection);
-        if constexpr (is_trackable_class_v<Type>)
+        auto tracker = make_shared<Base, SlotTracker>(connection, tracked);
+        if constexpr (isTracker)
         {
-            trackable.lock()->track(connection);
+            tracked->track(connection);
         }
+        return tracker;
     }
-    void untrack(Connection connection) override
+
+    explicit SlotTracker(Connection connection, TrackedType tracked)
+        : connection(connection)
+        , tracked(tracked)
     {
-        COMP_UNUSED(connection);
-        if constexpr (is_trackable_class_v<Type>)
+    }
+    ~SlotTracker()
+    {
+        untrack();
+    }
+
+    void untrack()
+    {
+        if constexpr (isTracker)
         {
-            auto locked = trackable.lock();
-            if (locked)
+            if constexpr (is_weak_ptr_v<PointerType>)
             {
-                locked->untrack(connection);
+                auto lock = tracked.lock();
+                if (lock)
+                {
+                    lock->untrack(connection);
+                }
+            }
+            else
+            {
+                tracked->untrack(connection);
             }
         }
     }
-    bool isValid() const override
-    {
-        return trackable.lock() != nullptr;
-    }
-};
 
-template <class Type>
-struct IntrusivePtrTracker final : TrackerInterface
-{
-    intrusive_ptr<Type> trackable;
-    explicit IntrusivePtrTracker(intrusive_ptr<Type> trackable)
-        : trackable(trackable)
+    bool isValid() const
     {
-    }
-    void track(Connection connection) override
-    {
-        trackable->track(connection);
-    }
-    void untrack(Connection connection) override
-    {
-        trackable->untrack(connection);
-    }
-    bool isValid() const override
-    {
-        return trackable;
+        if constexpr (is_pointer_v<TrackedType>)
+        {
+            return true;
+        }
+        else if constexpr (is_weak_ptr_v<PointerType>)
+        {
+            return tracked.lock() != nullptr;
+        }
+        else
+        {
+            return tracked;
+        }
     }
 };
 
 } // noname
 
 
-template <typename TrackerType>
-void SlotInterface::bind(TrackerType tracker)
+
+template <typename ReturnType, typename... Arguments>
+ReturnType SlotConcept<ReturnType, Arguments...>::activate(Arguments&&... args)
 {
-    static_assert (is_valid_trackable_arg<TrackerType>, "Invalid trackable");
-
-    if constexpr (is_trackable_pointer_v<TrackerType>)
-    {
-        auto _tracker = make_unique<PtrTracker>(tracker);
-        _tracker->track(shared_from_this());
-        addTracker(move(_tracker));
-    }
-    else if constexpr (is_weak_ptr_v<TrackerType> || is_shared_ptr_v<TrackerType>)
-    {
-        using Type = typename pointer_traits<TrackerType>::element_type;
-        auto _tracker = make_unique<WeakPtrTracker<Type>>(tracker);
-        if constexpr (is_trackable_class_v<Type>)
-        {
-            _tracker->track(shared_from_this());
-        }
-        addTracker(move(_tracker));
-    }
-    else if constexpr (is_intrusive_ptr_v<TrackerType>)
-    {
-        using Type = typename pointer_traits<TrackerType>::element_type;
-        auto _tracker = make_unique<IntrusivePtrTracker<Type>>(tracker);
-        _tracker->track(shared_from_this());
-        addTracker(move(_tracker));
-    }
-}
-
-
-template <typename LockType, typename ReturnType, typename... Arguments>
-void SlotConcept<LockType, ReturnType, Arguments...>::addTracker(TrackerPtr&& tracker)
-{
-    lock_guard lock(*this);
-    m_trackers.push_back(forward<TrackerPtr>(tracker));
-}
-
-template <typename LockType, typename ReturnType, typename... Arguments>
-bool SlotConcept<LockType, ReturnType, Arguments...>::isConnected() const
-{
-    if (!m_isConnected.load())
-    {
-        return false;
-    }
-
-    try
-    {
-        auto isTrackerValid = [](auto& tracker)
-        {
-            return !tracker->isValid();
-        };
-        auto it = find_if(m_trackers, isTrackerValid);
-        return (it == m_trackers.cend());
-    }
-    catch (...)
-    {
-        return false;
-    }
-}
-
-template <typename LockType, typename ReturnType, typename... Arguments>
-void SlotConcept<LockType, ReturnType, Arguments...>::disconnect()
-{
-    lock_guard lock(*this);
-    auto isConnected = m_isConnected.exchange(false);
-    if (!isConnected)
-    {
-        // Already disconnected.
-        return;
-    }
-
-    auto detacher = [this](auto& tracker)
-    {
-        tracker->untrack(shared_from_this());
-    };
-    for_each(m_trackers, detacher);
-    m_trackers.clear();
-}
-
-template <typename LockType, typename ReturnType, typename... Arguments>
-ReturnType SlotConcept<LockType, ReturnType, Arguments...>::activate(Arguments&&... args)
-{
-    if (!isConnected())
+    if (!this->isConnected())
     {
         throw bad_slot();
     }
@@ -207,12 +117,20 @@ Connection& Connection::bind(Trackers... trackers)
     auto slot = m_slot.lock();
     COMP_ASSERT(slot);
 
-    auto binder = [&slot](auto tracker)
+    auto binder = [this, &slot](auto tracker)
     {
-        slot->bind(tracker);
+        this->bindOne(slot, tracker);
     };
     for_each_arg(binder, trackers...);
     return *this;
+}
+
+template <class TrackerType>
+void Connection::bindOne(SlotPtr slot, TrackerType tracker)
+{
+    static_assert (is_valid_trackable_arg<TrackerType>, "Invalid trackable");
+
+    slot->addTracker(SlotTracker<TrackerType>::create(*this, tracker));
 }
 
 } // namespace comp

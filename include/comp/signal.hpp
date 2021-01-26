@@ -15,7 +15,7 @@ class Signal;
 /// \tparam ReturnType The return type of the signal.
 /// \tparam Arguments The arguments of the signal, which is the signature of the signal.
 template <typename ReturnType, typename... Arguments>
-class COMP_TEMPLATE_API Signal<ReturnType(Arguments...)> : public SignalConcept<mutex, ReturnType, Arguments...>
+class COMP_TEMPLATE_API Signal<ReturnType(Arguments...)> : public SignalConcept<ReturnType, Arguments...>
 {
 public:
     /// Constructor.
@@ -29,9 +29,9 @@ public:
 /// \tparam ReturnType The return type of the signal.
 /// \tparam Arguments The arguments of the signal, which is the signature of the signal.
 template <class SignalHost, typename ReturnType, typename... Arguments>
-class Signal<ReturnType(SignalHost::*)(Arguments...)> : public SignalConcept<mutex, ReturnType, Arguments...>
+class Signal<ReturnType(SignalHost::*)(Arguments...)> : public SignalConcept<ReturnType, Arguments...>
 {
-    using BaseClass = SignalConcept<mutex, ReturnType, Arguments...>;
+    using BaseClass = SignalConcept<ReturnType, Arguments...>;
     SignalHost& m_host;
 
 public:

@@ -2,64 +2,20 @@
 #define COMP_CONNECTION_HPP
 
 #include <comp/config.hpp>
+#include <comp/concept/core/signal_impl.hpp>
 #include <comp/wrap/memory.hpp>
 #include <comp/wrap/mutex.hpp>
 #include <comp/wrap/vector.hpp>
 #include <comp/wrap/type_traits.hpp>
 #include <comp/wrap/function_traits.hpp>
+#include <comp/utility/tracker.hpp>
 
 namespace comp
 {
 
-class Connection;
-class SlotInterface;
-using SlotPtr = shared_ptr<SlotInterface>;
-using SlotWeakPtr = weak_ptr<SlotInterface>;
-
-/// Tracker interface.
-struct COMP_API TrackerInterface
-{
-    /// Destructor.
-    virtual ~TrackerInterface() = default;
-    /// Attaches a slot to a tracker.
-    virtual void track(Connection) = 0;
-    /// Detaches a slot from a tracker.
-    virtual void untrack(Connection) = 0;
-    /// Returns the valid state of a tracker. A tracker is valid when it tracks a valid object.
-    /// \return If the tracker is valid, returns \e true, otherwise \e false.
-    virtual bool isValid() const = 0;
-};
-using TrackerPtr = unique_ptr<TrackerInterface>;
-
-/// Interface for slots.
-class COMP_API SlotInterface : public enable_shared_from_this<SlotInterface>
-{
-public:
-    virtual ~SlotInterface() = default;
-
-    /// Checks whether a slot is connected.
-    /// \return If the slot is connected, returns \e true, otherwise returns \e false.
-    virtual bool isConnected() const = 0;
-
-    /// Disconnects a slot.
-    virtual void disconnect() = 0;
-
-    /// Binds a tracker object to the slot. The tracker object is either a shared pointer, a weak pointer,
-    /// or a Tracker derived object.
-    /// \tparam TrackerType The type of the tracker, a shared_ptr, weak_ptr, or a pointer to the Tracker
-    ///         derived object.
-    /// \param tracker The tracker to bind to the slot.
-    /// \see Connection::bind()
-    template <class TrackerType>
-    void bind(TrackerType tracker);
-
-protected:
-    /// Constructor.
-    explicit SlotInterface() = default;
-
-    /// Adds a tracker to the slot.
-    virtual void addTracker(TrackerPtr&&) = 0;
-};
+// Forward declarations.
+using SlotPtr = shared_ptr<core::Slot<mutex>>;
+using SlotWeakPtr = weak_ptr<core::Slot<mutex>>;
 
 /// The Connection holds a slot connected to a signal. It is a token to a receiver slot connected to
 /// that signal.
@@ -102,12 +58,12 @@ public:
     /// slot is only activated if all the objects used in the slot function are valid, bind trackers.
     ///
     /// A tracker is either
-    /// - a pointer to a class derived from Tracker; the pointer is either a raw pointer, a shared pointer or an intrusive
+    /// - a pointer to a class derived from ConnectionTracker; the pointer is either a raw pointer, a shared pointer or an intrusive
     ///   pointer
     /// - a shared or weak pointer of an arbitrar object.
     ///
     /// You can use the same tracker to track multiple slots. To disconnect the slots tracked by a tracker that is derived
-    /// from Tracker, call #Tracker::disconnectTrackedConnections(). Slots tracked by a shared pointer are disconnected only when
+    /// from ConnectionTracker, call #ConnectionTracker::clearTrackables(). Slots tracked by a shared pointer are disconnected only when
     /// that shared pointer is deleted.
     ///
     /// To untrack a slot in all its trackers, disconnect that slot.
@@ -128,58 +84,18 @@ public:
 
 private:
     SlotWeakPtr m_slot;
+
+    /// Binds a \a tracker object to a \a slot. The tracker object is either a shared pointer, a weak pointer,
+    /// a ConnectionTracker object, or a shared pointer to a ConnectionTracker.
+    template <class TrackerType>
+    void bindOne(SlotPtr slot, TrackerType tracker);
 };
 
 /// To track the lifetime of a connection based on an arbitrary object that is not a smart pointer,
 /// use this class. The class disconnects all tracked slots on destruction.
 /// You can bind trackers to a connection using the #Connection::bind() method, by passing the pointer
-/// to the Tracker object as argument of the method.
-class COMP_API Tracker : public TrackerInterface
-{
-public:
-    /// Destructor.
-    ~Tracker()
-    {
-        disconnectTrackedConnections();
-    }
-
-    /// Attaches a \a slot to the trackable.
-    void track(Connection connection) override
-    {
-        m_trackedConnections.push_back(connection);
-    }
-
-    /// Detaches the slot from the trackable.
-    void untrack(Connection connection) override
-    {
-        erase_first(m_trackedConnections, connection);
-    }
-
-    /// Disconnects the attached slots. Call this method if you want to disconnect from the attached slot
-    /// earlier than at the trackable destruction time.
-    void disconnectTrackedConnections()
-    {
-        while (!m_trackedConnections.empty())
-        {
-            auto connection = m_trackedConnections.back();
-            m_trackedConnections.pop_back();
-
-            connection.disconnect();
-        }
-    }
-
-protected:
-    /// Constructor.
-    explicit Tracker() = default;
-
-private:
-    /// This is valid as long as it exists.
-    bool isValid() const final
-    {
-        return true;
-    }
-    vector<Connection> m_trackedConnections;
-};
+/// to the ConnectionTracker object as argument of the method.
+using ConnectionTracker = Tracker<Connection>;
 
 /********************************************************************************
  * Collectors
@@ -258,44 +174,34 @@ struct DefaultSignalCollector<T, enable_if_t<!is_void_v<T>, void>> : public Coll
 
 /// The Slot holds the invocable connected to a signal. The slot is a function, a function object, a method
 /// or an other signal.
-template <typename LockType, typename ReturnType, typename... Arguments>
-class COMP_TEMPLATE_API SlotConcept : public SlotInterface, public Lockable<mutex>
+template <typename ReturnType, typename... Arguments>
+class COMP_TEMPLATE_API SlotConcept : public core::Slot<mutex>
 {
+    using Base = core::Slot<mutex>;
 public:
     /// Activates the slot with the arguments passed, and returns the slot's return value.
     ReturnType activate(Arguments&&...);
 
-    /// Implements SlotInterface::isConnected().
-    bool isConnected() const final;
-
-    /// Implements SlotInterface::disconnect().
-    void disconnect() final;
-
 protected:
+    /// Constructor.
+    explicit SlotConcept(core::Signal& signal)
+        : Base(signal)
+    {
+    }
+
     /// To implement slot specific activation, override this method.
     virtual ReturnType activateOverride(Arguments&&...) = 0;
-
-    /// Implements SlotInterface::addTracker().
-    void addTracker(TrackerPtr&& tracker) final;
-
-private:
-    /// The container with the binded trackers.
-    using TrackersContainer = vector<TrackerPtr>;
-
-    /// The binded trackers.
-    TrackersContainer m_trackers;
-    atomic_bool m_isConnected = true;
 };
 
 /// The SignalConcept defines the concept of a signal. Defined as a lockable for convenience, holds the
 /// connections of the signal.
-template <class LockType, typename ReturnType, typename... Arguments>
-class COMP_TEMPLATE_API SignalConcept : public Lockable<LockType>, public Tracker
+template <typename ReturnType, typename... Arguments>
+class COMP_TEMPLATE_API SignalConcept : public Lockable<mutex>, public core::Signal, public ConnectionTracker
 {
 public:
-    using SlotType = SlotConcept<LockType, ReturnType, Arguments...>;
+    using SlotType = SlotConcept<ReturnType, Arguments...>;
     using SlotTypePtr = shared_ptr<SlotType>;
-    using SignalConceptType = SignalConcept<LockType, ReturnType, Arguments...>;
+    using SignalConceptType = SignalConcept<ReturnType, Arguments...>;
 
     /// Destructor.
     ~SignalConcept();
@@ -348,7 +254,7 @@ public:
 
     /// Disconnects the \a connection passed as argument.
     /// \param connection The connection to disconnect. The connection is invalidated and removed from the signal.
-    void disconnect(Connection connection);
+    void disconnect(Connection connection) override;
 
 protected:
     /// Constructor.
