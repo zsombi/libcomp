@@ -36,13 +36,11 @@ enum class WriteBehavior
 
 class BindingScope;
 
-namespace property_core
+namespace core
 {
 
 class COMP_API Value : public ConnectionTracker
 {
-//    friend class comp::BindingScope;
-
 public:
     virtual ~Value() = default;
     virtual void removeSelf() = 0;
@@ -69,7 +67,7 @@ typedef Signal<void()> ChangeSignalType;
 /// that provide the actual value of a property. A property may have several property value providers, of
 /// which only one is active.
 template <typename T, typename LockType>
-class COMP_TEMPLATE_API PropertyValue : public Lockable<LockType>, public property_core::Value, public enable_shared_from_this<PropertyValue<T, LockType>>
+class COMP_TEMPLATE_API PropertyValue : public Lockable<LockType>, public core::Value, public enable_shared_from_this<PropertyValue<T, LockType>>
 {
 public:
     using DataType = T;
@@ -166,7 +164,7 @@ using PropertyValueWeakPtr = weak_ptr<PropertyValue<T, LockType>>;
 class COMP_API BindingScope final
 {
 public:
-    static inline property_core::Value* current = nullptr;
+    static inline core::Value* current = nullptr;
 
     template <typename T, typename LockType>
     BindingScope(PropertyValue<T, LockType>* valueProvider)
@@ -184,19 +182,18 @@ public:
     }
 
     template <typename T, typename LockType>
-    static void trackProperty(PropertyCore<T, LockType>& target)
+    static void trackProperty(PropertyCore<T, LockType>& source)
     {
-        current->clearTrackables();
-        current->track(target.changed.connect(*targetChangeSignal));
+        current->track(source.changed.connect(*targetChangeSignal));
         auto onSourceDeleted = [binding = current]()
         {
             binding->removeSelf();
         };
-        current->track(target.deleted.connect(onSourceDeleted));
+        current->track(source.deleted.connect(onSourceDeleted));
     }
 
 private:
-    property_core::Value* previousValue = nullptr;
+    core::Value* previousValue = nullptr;
     ChangeSignalType* previousChangeSignal = nullptr;
 
     static inline ChangeSignalType* targetChangeSignal = nullptr;
@@ -205,7 +202,7 @@ private:
 
 
 template <typename T, typename LockType>
-class COMP_TEMPLATE_API PropertyCore : public Lockable<LockType>, public property_core::Property
+class COMP_TEMPLATE_API PropertyCore : public Lockable<LockType>, public core::Property
 {
     template <typename, typename>
     friend class PropertyValue;
@@ -261,7 +258,7 @@ public:
     /// Removes a property value from a property. If the property value is the active property value,
     /// the last added property value becomes the active property value for the property.
     /// \param value The property value to remove.
-    void removePropertyValue(property_core::Value& value);
+    void removePropertyValue(core::Value& value);
 
     template <class Expression>
     enable_if_t<is_function_v<Expression> || function_traits<Expression>::type == Functor, PropertyValuePtr<T, LockType>>
@@ -273,7 +270,7 @@ protected:
 
     /// Removes the discardable property values. Makes the last added value provider that is kept as
     /// the active value provider.
-    void discard();
+    void discardValues();
 
     /// Returns the active property value of the property.
     typename Base::ValuePtr getActiveValue() const;

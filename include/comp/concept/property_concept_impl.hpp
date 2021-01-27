@@ -155,7 +155,7 @@ void PropertyConcept<T, LockType>::addPropertyValue(typename Base::ValuePtr prop
 }
 
 template <typename T, typename LockType>
-void PropertyConcept<T, LockType>::removePropertyValue(property_core::Value& value)
+void PropertyConcept<T, LockType>::removePropertyValue(core::Value& value)
 {
     lock_guard lock(*this);
 
@@ -183,7 +183,7 @@ void PropertyConcept<T, LockType>::removePropertyValue(property_core::Value& val
 }
 
 template <typename T, typename LockType>
-void PropertyConcept<T, LockType>::discard()
+void PropertyConcept<T, LockType>::discardValues()
 {
     lock_guard lock(*this);
 
@@ -222,7 +222,7 @@ template <class Expression>
 enable_if_t<is_function_v<Expression> || function_traits<Expression>::type == Functor, PropertyValuePtr<T, LockType>>
 PropertyConcept<T, LockType>::bind(Expression expression)
 {
-    auto binding = ExpressionBinding<T, LockType, Expression>::create(expression);
+    auto binding = ExpressionBinding<T, Expression>::create(expression);
     addPropertyValue(binding);
     return binding;
 }

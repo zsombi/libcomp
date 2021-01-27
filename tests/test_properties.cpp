@@ -246,3 +246,20 @@ TEST_F(PropertyBindingTest, deletePropertyUsedInBinding)
     EXPECT_EQ(2u, propertyChangeCount);
     EXPECT_EQ(0, property);
 }
+
+TEST_F(PropertyBindingTest, expressionWithMultipleProperties)
+{
+    auto expression = [this]() -> int
+    {
+        return other + int(floatValue);
+    };
+    property.bind(expression);
+    EXPECT_EQ(1u, propertyChangeCount);
+
+    other = 10;
+    EXPECT_EQ(2u, propertyChangeCount);
+    EXPECT_EQ(15, property);
+
+    floatValue = 1.f;
+    EXPECT_EQ(3u, propertyChangeCount);
+}

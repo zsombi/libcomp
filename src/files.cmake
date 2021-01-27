@@ -29,6 +29,7 @@ set(HEADERS
 
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/concept/zero_safe_container.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/concept/property.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/concept/binding.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/property.hpp
 
     )

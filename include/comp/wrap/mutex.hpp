@@ -48,42 +48,6 @@ private:
     mutex_type& m_mutex;
 };
 
-template <typename... Mutexes>
-class COMP_TEMPLATE_API scoped_lock
-{
-    static_assert(sizeof...(Mutexes) > 1, "At least 2 lock types required");
-    using MutexTuple = tuple<Mutexes&...>;
-
-public:
-    explicit scoped_lock(Mutexes&... args)
-        : m_mutexes(args...)
-    {
-        apply([](auto ...x){make_tuple(x.lock()...);} , m_mutexes);
-    }
-
-    ~scoped_lock()
-    {
-        apply([](auto ...x){make_tuple(x.unlock()...);} , m_mutexes);
-    }
-
-    scoped_lock(scoped_lock const&) = delete;
-    scoped_lock& operator=(scoped_lock const&) = delete;
-
-private:
-//    static void lock(MutexTuple)
-//    {
-//        get<Index>(mutexes...).lock();
-//    }
-
-//    template <size_t ...Index>
-//    static void unlock(__tuple_indices<Index...>, MutexTuple& mutexes)
-//    {
-//        get<Index>(mutexes...).unlock();
-//    }
-
-    MutexTuple m_mutexes;
-};
-
 #endif
 
 /// Unlocks a mutex on creation, and re-locks it on destruction.

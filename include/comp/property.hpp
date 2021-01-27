@@ -79,7 +79,7 @@ public:
     /// write behavior, and sets the \a value to the new active property value provider.
     void operator=(DataType const& value)
     {
-        this->discard();
+        this->discardValues();
         this->getActiveValue()->set(value);
     }
 
