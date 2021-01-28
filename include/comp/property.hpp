@@ -9,16 +9,16 @@ namespace comp
 
 /// The Property provides you property management in COMP.
 template <typename T>
-class COMP_TEMPLATE_API Property final : public PropertyConcept<T, mutex>
+class COMP_TEMPLATE_API Property final : public PropertyConcept<T>
 {
-    using Base = PropertyConcept<T, mutex>;
-    using ValueTypePtr = PropertyValuePtr<T, mutex>;
+    using Base = PropertyConcept<T>;
+    using ValueTypePtr = PropertyValuePtr<T>;
 
-    class COMP_TEMPLATE_API Data : public PropertyValue<T, mutex>
+    class COMP_TEMPLATE_API Data : public PropertyValue<T>
     {
     public:
         explicit Data(T const& value)
-            : PropertyValue<T, mutex>(WriteBehavior::Keep)
+            : PropertyValue<T>(WriteBehavior::Keep)
             , m_data(value)
         {
         }
@@ -94,15 +94,15 @@ public:
 };
 
 template <typename T>
-class COMP_TEMPLATE_API State : public StateConcept<T, mutex>
+class COMP_TEMPLATE_API State : public StateConcept<T>
 {
-    using Base = StateConcept<T, mutex>;
+    using Base = StateConcept<T>;
 
 public:
     using DataType = T;
     /// Constructor, creates a state using a property value.
     /// \param propertyValue The property value which provides the value of the property.
-    explicit State(PropertyValuePtr<T, mutex> propertyValue)
+    explicit State(PropertyValuePtr<T> propertyValue)
         : Base(propertyValue)
     {
     }

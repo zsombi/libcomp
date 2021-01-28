@@ -74,6 +74,10 @@ public:
         swap(m_dirtyCount, other.m_dirtyCount);
         return *this;
     }
+    ~ZeroSafeContainer()
+    {
+        clear();
+    }
 
     operator ContainerType() const
     {

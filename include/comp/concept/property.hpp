@@ -10,82 +10,6 @@
 namespace comp
 {
 
-namespace core
-{
-
-class Property;
-class COMP_API Value : public ConnectionTracker, public enable_shared_from_this<Value>
-{
-    friend class Property;
-
-public:
-    virtual ~Value() = default;
-    virtual void removeSelf();
-
-    void trackSource(Property& source);
-    void untrackSources();
-    void reset()
-    {
-        untrackSources();
-        clearTrackables();
-    }
-
-protected:
-    vector<Property*> m_sourceProperties;
-};
-
-class COMP_API Property
-{
-    friend class Value;
-
-public:
-    virtual ~Property()
-    {
-        notifyDeleted();
-    }
-
-    virtual void removePropertyValue(Value& /*value*/)
-    {
-    }
-
-protected:
-    virtual void notifyDeleted()
-    {
-        while (!m_connectedPropertyValues.empty())
-        {
-            auto value = m_connectedPropertyValues.back();
-            m_connectedPropertyValues.pop_back();
-            erase(value->m_sourceProperties, this);
-            value->removeSelf();
-        }
-    }
-
-    vector<shared_ptr<Value>> m_connectedPropertyValues;
-};
-
-void Value::trackSource(Property& source)
-{
-    source.m_connectedPropertyValues.push_back(shared_from_this());
-    m_sourceProperties.push_back(&source);
-}
-
-void Value::untrackSources()
-{
-    while (!m_sourceProperties.empty())
-    {
-        auto* source = m_sourceProperties.back();
-        m_sourceProperties.pop_back();
-        erase(source->m_connectedPropertyValues, shared_from_this());
-    }
-}
-
-void Value::removeSelf()
-{
-    untrackSources();
-}
-
-} // comp::core
-
 /// The enum defines the status of a property value.
 enum class PropertyValueState
 {
@@ -110,28 +34,25 @@ enum class WriteBehavior
     Discard
 };
 
-class BindingScope;
-
-template <typename T, typename LockType>
-class PropertyCore;
-
-typedef Signal<void()> ChangeSignalType;
-
-/// The PropertyValue template defines the interface of property values. Property values are interfaces
-/// that provide the actual value of a property. A property may have several property value providers, of
-/// which only one is active.
-template <typename T, typename LockType>
-class COMP_TEMPLATE_API PropertyValue : public Lockable<LockType>, public core::Value
+namespace core
 {
+
+class Property;
+class COMP_API Value : public Lockable<mutex>, private ConnectionTracker, public enable_shared_from_this<Value>
+{
+    friend class Property;
+
 public:
-    using DataType = T;
-    using Core = PropertyCore<T, LockType>;
+    virtual ~Value() = default;
+    virtual void removeSelf();
 
-    /// The behavior of the property value when the property setter is invoked.
-    const WriteBehavior writeBehavior = WriteBehavior::Discard;
-
-    /// Destructor.
-    virtual ~PropertyValue() = default;
+    void trackSource(Property& source);
+    void untrackSources();
+    void reset()
+    {
+        untrackSources();
+        clearTrackables();
+    }
 
     /// Returns the status of the property value.
     /// \return The status of the property value.
@@ -140,10 +61,115 @@ public:
         return m_state;
     }
 
-    Core* getProperty() const
+    /// Returns the property to which this property value is attached.
+    Property* getProperty() const
     {
         return m_target;
     }
+
+protected:
+
+    virtual void onStateChanged(PropertyValueState /*state*/)
+    {
+    }
+
+    void setState(PropertyValueState state);
+
+    /// The source properties of this property value provider.
+    vector<Property*> m_bindingSources;
+
+    /// The target property to which the property value is attached.
+    Property* m_target = nullptr;
+    /// The state of a property value.
+    PropertyValueState m_state = PropertyValueState::Detached;
+
+};
+
+class COMP_API Property : public Lockable<mutex>
+{
+    friend class Value;
+
+public:
+    /// The changed signal emits when the value of the property is changed. The signal is also
+    /// emitted when the active property value is changed.
+    comp::Signal<void()> changed;
+
+    virtual ~Property()
+    {
+        notifyDeleted();
+    }
+
+    virtual void removePropertyValue(Value& /*value*/)
+    {
+    }
+
+protected:
+    virtual void notifyDeleted()
+    {
+        while (!m_connectedPropertyValues.empty())
+        {
+            auto value = m_connectedPropertyValues.back();
+            m_connectedPropertyValues.pop_back();
+            erase(value->m_bindingSources, this);
+            value->removeSelf();
+        }
+    }
+
+    vector<shared_ptr<Value>> m_connectedPropertyValues;
+};
+
+void Value::setState(PropertyValueState state)
+{
+    m_state = state;
+    onStateChanged(m_state);
+}
+
+void Value::trackSource(Property& source)
+{
+    track(source.changed.connect(m_target->changed));
+    source.m_connectedPropertyValues.push_back(shared_from_this());
+    m_bindingSources.push_back(&source);
+}
+
+void Value::untrackSources()
+{
+    while (!m_bindingSources.empty())
+    {
+        auto* source = m_bindingSources.back();
+        m_bindingSources.pop_back();
+        erase(source->m_connectedPropertyValues, shared_from_this());
+    }
+}
+
+void Value::removeSelf()
+{
+    reset();
+}
+
+} // comp::core
+
+class BindingScope;
+
+template <typename T>
+class PropertyConcept;
+
+typedef Signal<void()> ChangeSignalType;
+
+/// The PropertyValue template defines the interface of property values. Property values are interfaces
+/// that provide the actual value of a property. A property may have several property value providers, of
+/// which only one is active.
+template <typename T>
+class COMP_TEMPLATE_API PropertyValue : public core::Value
+{
+public:
+    using DataType = T;
+    using PropertyType = core::Property;
+
+    /// The behavior of the property value when the property setter is invoked.
+    const WriteBehavior writeBehavior = WriteBehavior::Discard;
+
+    /// Destructor.
+    virtual ~PropertyValue() = default;
 
     /// Evaluates the property value, and returns the evaluated value, which represents the value of the property.
     /// \return The value of the property.
@@ -164,7 +190,7 @@ public:
     void deactivate();
 
     /// Attaches the property value to a \a property. The property value must not be attached to any property.
-    void attach(Core& property);
+    void attach(PropertyType& property);
 
     /// Detaches the property value from a property.
     void detach();
@@ -190,105 +216,72 @@ protected:
     virtual void onStateChanged(PropertyValueState state);
     /// \}
 
-    /// The target property to which the property value is attached.
-    Core* m_target = nullptr;
-    /// The state of a property value.
-    PropertyValueState m_state = PropertyValueState::Detached;
-
 private:
-    void setState(PropertyValueState state);
 
     /// Reentrance guard for evaluate.
     FlagGuard m_guardEvaluate;
 };
 
-template <typename T, typename LockType>
-using PropertyValuePtr = shared_ptr<PropertyValue<T, LockType>>;
-template <typename T, typename LockType>
-using PropertyValueWeakPtr = weak_ptr<PropertyValue<T, LockType>>;
+template <typename T>
+using PropertyValuePtr = shared_ptr<PropertyValue<T>>;
+template <typename T>
+using PropertyValueWeakPtr = weak_ptr<PropertyValue<T>>;
 
 class COMP_API BindingScope final
 {
 public:
     static inline core::Value* current = nullptr;
 
-    template <typename T, typename LockType>
-    BindingScope(PropertyValue<T, LockType>* valueProvider)
+    template <typename T>
+    BindingScope(PropertyValue<T>* valueProvider)
         : previousValue(current)
-        , previousChangeSignal(targetChangeSignal)
     {
         current = valueProvider;
-        targetChangeSignal = &valueProvider->getProperty()->changed;
     }
 
     ~BindingScope()
     {
         current = previousValue;
-        targetChangeSignal = previousChangeSignal;
-    }
-
-    template <typename T, typename LockType>
-    static void trackProperty(PropertyCore<T, LockType>& source)
-    {
-        current->track(source.changed.connect(*targetChangeSignal));
-        current->trackSource(source);
     }
 
 private:
     core::Value* previousValue = nullptr;
-    ChangeSignalType* previousChangeSignal = nullptr;
 
-    static inline ChangeSignalType* targetChangeSignal = nullptr;
     static inline ConnectionTracker* targetTracker = nullptr;
 };
 
 
-template <typename T, typename LockType>
-class COMP_TEMPLATE_API PropertyCore : public Lockable<LockType>, public core::Property
-{
-    template <typename, typename>
-    friend class PropertyValue;
-    friend class BindingScope;
-
-public:
-    using ValuePtr = PropertyValuePtr<T, LockType>;
-
-    /// The changed signal emits when the value of the property is changed. The signal is also
-    /// emitted when the active property value is changed.
-    ChangeSignalType changed;
-
-protected:
-    explicit PropertyCore() = default;
-};
-
 /// The StateConcept template defines the core functionality of state properties. State properties are read-only
 /// properties. State properties have a single property value provider. To set the value of the property, use the
 /// set method of the property value provider you pass to the constructor.
-template <typename T, typename LockType>
-class COMP_TEMPLATE_API StateConcept : public PropertyCore<T, LockType>
+template <typename T>
+class COMP_TEMPLATE_API StateConcept : public core::Property
 {
-    using Base = PropertyCore<T, LockType>;
+    using Base = core::Property;
 
 protected:
+    using ValuePtr = PropertyValuePtr<T>;
     /// Constructor.
-    explicit StateConcept(typename Base::ValuePtr propertyValue);
+    explicit StateConcept(ValuePtr propertyValue);
 
     /// The property value provider.
-    typename Base::ValuePtr m_value;
+    ValuePtr m_value;
 };
 
 /// The PropertyConcept template defines the core functionality of the properties. Provides property value
 /// provider management, as well as notification of the property value changes.
 /// A property must have at least one property value provider with WriteBehavior::Keep.
-template <typename T, typename LockType>
-class COMP_TEMPLATE_API PropertyConcept : public PropertyCore<T, LockType>
+template <typename T>
+class COMP_TEMPLATE_API PropertyConcept : public core::Property
 {
-    using Base = PropertyCore<T, LockType>;
+    using Base = core::Property;
 
 public:
+    using ValuePtr = PropertyValuePtr<T>;
+
     /// Adds a property value to a property. The property value becomes the active property value.
     /// \param propertyValue The property value to add.
-    void addPropertyValue(typename Base::ValuePtr propertyValue);
+    void addPropertyValue(ValuePtr propertyValue);
 
     /// Removes a property value from a property. If the property value is the active property value,
     /// the last added property value becomes the active property value for the property.
@@ -296,23 +289,23 @@ public:
     void removePropertyValue(core::Value& value);
 
     template <class Expression>
-    enable_if_t<is_function_v<Expression> || function_traits<Expression>::type == Functor, PropertyValuePtr<T, LockType>>
+    enable_if_t<is_function_v<Expression> || function_traits<Expression>::type == Functor, PropertyValuePtr<T>>
     bind(Expression expression);
 
 protected:
     /// Constructor.
-    explicit PropertyConcept(typename Base::ValuePtr defaultValue);
+    explicit PropertyConcept(ValuePtr defaultValue);
 
     /// Removes the discardable property values. Makes the last added value provider that is kept as
     /// the active value provider.
     void discardValues();
 
     /// Returns the active property value of the property.
-    typename Base::ValuePtr getActiveValue() const;
+    ValuePtr getActiveValue() const;
 
     struct VPInvalidator
     {
-        void operator()(typename Base::ValuePtr& propertyValue)
+        void operator()(ValuePtr& propertyValue)
         {
             if (!propertyValue)
             {
@@ -323,8 +316,8 @@ protected:
         }
     };
 
-    ZeroSafeContainer<typename Base::ValuePtr, detail::NullCheck<typename Base::ValuePtr>, VPInvalidator> m_vp;
-    PropertyValueWeakPtr<T, LockType> m_active;
+    ZeroSafeContainer<ValuePtr, detail::NullCheck<ValuePtr>, VPInvalidator> m_vp;
+    PropertyValueWeakPtr<T> m_active;
 };
 
 } // namespace comp

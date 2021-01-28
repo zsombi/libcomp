@@ -8,9 +8,9 @@ namespace comp
 {
 
 template <class DerivedBinding, typename T>
-class COMP_TEMPLATE_API BindingConcept : public PropertyValue<T, mutex>
+class COMP_TEMPLATE_API BindingConcept : public PropertyValue<T>
 {
-    using Base = PropertyValue<T, mutex>;
+    using Base = PropertyValue<T>;
     DerivedBinding* getSelf()
     {
         return static_cast<DerivedBinding*>(this);

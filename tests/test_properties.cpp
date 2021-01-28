@@ -52,11 +52,11 @@ TEST(PropertyTest, changedSignalEmitsOnPropertyCopy)
     EXPECT_TRUE(changeCount);
 }
 
-struct UserData : public comp::PropertyValue<int, comp::mutex>
+struct UserData : public comp::PropertyValue<int>
 {
     int m_data = -1;
     explicit UserData(comp::WriteBehavior writeBehavior) :
-        comp::PropertyValue<int, comp::mutex>(writeBehavior)
+        comp::PropertyValue<int>(writeBehavior)
     {
     }
     DataType evaluateOverride() override
