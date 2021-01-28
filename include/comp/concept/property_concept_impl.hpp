@@ -64,7 +64,7 @@ void PropertyValue<T, LockType>::activate()
     if (m_state == PropertyValueState::Inactive)
     {
         setState(PropertyValueState::Active);
-        m_target->changed();
+//        m_target->changed();
     }
 }
 
@@ -106,7 +106,7 @@ void PropertyValue<T, LockType>::onStateChanged(PropertyValueState state)
         case PropertyValueState::Inactive:
         case PropertyValueState::Detaching:
         {
-            clearTrackables();
+            reset();
             break;
         }
         default:
@@ -152,6 +152,7 @@ void PropertyConcept<T, LockType>::addPropertyValue(typename Base::ValuePtr prop
 
     relock_guard relock(*this);
     propertyValue->activate();
+    this->changed();
 }
 
 template <typename T, typename LockType>
@@ -179,6 +180,7 @@ void PropertyConcept<T, LockType>::removePropertyValue(core::Value& value)
         m_active = last;
         relock_guard relock(*this);
         last->activate();
+        this->changed();
     }
 }
 

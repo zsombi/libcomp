@@ -10,6 +10,82 @@
 namespace comp
 {
 
+namespace core
+{
+
+class Property;
+class COMP_API Value : public ConnectionTracker, public enable_shared_from_this<Value>
+{
+    friend class Property;
+
+public:
+    virtual ~Value() = default;
+    virtual void removeSelf();
+
+    void trackSource(Property& source);
+    void untrackSources();
+    void reset()
+    {
+        untrackSources();
+        clearTrackables();
+    }
+
+protected:
+    vector<Property*> m_sourceProperties;
+};
+
+class COMP_API Property
+{
+    friend class Value;
+
+public:
+    virtual ~Property()
+    {
+        notifyDeleted();
+    }
+
+    virtual void removePropertyValue(Value& /*value*/)
+    {
+    }
+
+protected:
+    virtual void notifyDeleted()
+    {
+        while (!m_connectedPropertyValues.empty())
+        {
+            auto value = m_connectedPropertyValues.back();
+            m_connectedPropertyValues.pop_back();
+            erase(value->m_sourceProperties, this);
+            value->removeSelf();
+        }
+    }
+
+    vector<shared_ptr<Value>> m_connectedPropertyValues;
+};
+
+void Value::trackSource(Property& source)
+{
+    source.m_connectedPropertyValues.push_back(shared_from_this());
+    m_sourceProperties.push_back(&source);
+}
+
+void Value::untrackSources()
+{
+    while (!m_sourceProperties.empty())
+    {
+        auto* source = m_sourceProperties.back();
+        m_sourceProperties.pop_back();
+        erase(source->m_connectedPropertyValues, shared_from_this());
+    }
+}
+
+void Value::removeSelf()
+{
+    untrackSources();
+}
+
+} // comp::core
+
 /// The enum defines the status of a property value.
 enum class PropertyValueState
 {
@@ -36,28 +112,6 @@ enum class WriteBehavior
 
 class BindingScope;
 
-namespace core
-{
-
-class COMP_API Value : public ConnectionTracker
-{
-public:
-    virtual ~Value() = default;
-    virtual void removeSelf() = 0;
-};
-
-class COMP_API Property
-{
-public:
-    virtual ~Property() = default;
-
-    virtual void removePropertyValue(Value& /*value*/)
-    {
-    }
-};
-
-} //
-
 template <typename T, typename LockType>
 class PropertyCore;
 
@@ -67,7 +121,7 @@ typedef Signal<void()> ChangeSignalType;
 /// that provide the actual value of a property. A property may have several property value providers, of
 /// which only one is active.
 template <typename T, typename LockType>
-class COMP_TEMPLATE_API PropertyValue : public Lockable<LockType>, public core::Value, public enable_shared_from_this<PropertyValue<T, LockType>>
+class COMP_TEMPLATE_API PropertyValue : public Lockable<LockType>, public core::Value
 {
 public:
     using DataType = T;
@@ -121,14 +175,6 @@ protected:
         : writeBehavior(writeBehavior)
     {
     }
-
-    /// \name Binding handling methods
-    /// \{
-    void removeSelf() override
-    {
-        COMP_ASSERT(false);
-    }
-    /// \}
 
     /// \name Overridables
     /// \{
@@ -185,11 +231,7 @@ public:
     static void trackProperty(PropertyCore<T, LockType>& source)
     {
         current->track(source.changed.connect(*targetChangeSignal));
-        auto onSourceDeleted = [binding = current]()
-        {
-            binding->removeSelf();
-        };
-        current->track(source.deleted.connect(onSourceDeleted));
+        current->trackSource(source);
     }
 
 private:
@@ -215,15 +257,8 @@ public:
     /// emitted when the active property value is changed.
     ChangeSignalType changed;
 
-    virtual ~PropertyCore()
-    {
-        deleted();
-    }
-
 protected:
     explicit PropertyCore() = default;
-
-    Signal<void()> deleted;
 };
 
 /// The StateConcept template defines the core functionality of state properties. State properties are read-only

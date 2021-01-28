@@ -22,14 +22,14 @@ protected:
     {
     }
 
-    T evaluateOverride() override
+    T evaluateOverride() final
     {
         BindingScope scope(getSelf());
-        getSelf()->clearTrackables();
+        getSelf()->reset();
         return getSelf()->evaluateBinding();
     }
 
-    bool setOverride(const T&) override
+    bool setOverride(const T&) final
     {
         COMP_ASSERT(false);
         return false;
@@ -37,7 +37,16 @@ protected:
 
     void removeSelf() override
     {
-        getSelf()->getProperty()->removePropertyValue(*getSelf());
+        Base::removeSelf();
+        auto property = getSelf()->getProperty();
+        if (property)
+        {
+            property->removePropertyValue(*getSelf());
+        }
+        else
+        {
+            std::puts("null property on removeSelf()");
+        }
     }
 };
 
