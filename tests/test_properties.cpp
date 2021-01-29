@@ -247,6 +247,25 @@ TEST_F(PropertyBindingTest, deletePropertyUsedInBinding)
     EXPECT_EQ(0, property);
 }
 
+TEST_F(PropertyBindingTest, deletePropertyUsedInBindings)
+{
+    auto dynamic = comp::make_unique<comp::Property<int>>(11);
+    auto expression = [prop = dynamic.get()]() -> int
+    {
+        return *prop * 10;
+    };
+    property.bind(expression);
+    other.bind(expression);
+    EXPECT_EQ(1u, propertyChangeCount);
+    EXPECT_EQ(110, property);
+    EXPECT_EQ(110, other);
+
+    dynamic.reset();
+    EXPECT_EQ(2u, propertyChangeCount);
+    EXPECT_EQ(0, property);
+    EXPECT_EQ(0, other);
+}
+
 TEST_F(PropertyBindingTest, expressionWithMultipleProperties)
 {
     auto expression = [this]() -> int

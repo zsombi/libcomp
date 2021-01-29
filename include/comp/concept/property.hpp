@@ -44,7 +44,6 @@ class COMP_API Value : public Lockable<mutex>, private ConnectionTracker, public
 
 public:
     virtual ~Value() = default;
-    virtual void removeSelf();
 
     void trackSource(Property& source);
     void untrackSources();
@@ -74,6 +73,9 @@ protected:
     }
 
     void setState(PropertyValueState state);
+
+    /// Removes the property value from the property, and destroys the proeprty value.
+    void destroy();
 
     /// The source properties of this property value provider.
     vector<Property*> m_bindingSources;
@@ -106,16 +108,16 @@ public:
 protected:
     virtual void notifyDeleted()
     {
-        while (!m_connectedPropertyValues.empty())
+        while (!m_targetPropertyValues.empty())
         {
-            auto value = m_connectedPropertyValues.back();
-            m_connectedPropertyValues.pop_back();
+            auto value = m_targetPropertyValues.back();
+            m_targetPropertyValues.pop_back();
             erase(value->m_bindingSources, this);
-            value->removeSelf();
+            value->destroy();
         }
     }
 
-    vector<shared_ptr<Value>> m_connectedPropertyValues;
+    vector<shared_ptr<Value>> m_targetPropertyValues;
 };
 
 void Value::setState(PropertyValueState state)
@@ -127,7 +129,7 @@ void Value::setState(PropertyValueState state)
 void Value::trackSource(Property& source)
 {
     track(source.changed.connect(m_target->changed));
-    source.m_connectedPropertyValues.push_back(shared_from_this());
+    source.m_targetPropertyValues.push_back(shared_from_this());
     m_bindingSources.push_back(&source);
 }
 
@@ -137,13 +139,17 @@ void Value::untrackSources()
     {
         auto* source = m_bindingSources.back();
         m_bindingSources.pop_back();
-        erase(source->m_connectedPropertyValues, shared_from_this());
+        erase(source->m_targetPropertyValues, shared_from_this());
     }
 }
 
-void Value::removeSelf()
+void Value::destroy()
 {
     reset();
+    if (m_target)
+    {
+        m_target->removePropertyValue(*this);
+    }
 }
 
 } // comp::core

@@ -34,20 +34,6 @@ protected:
         COMP_ASSERT(false);
         return false;
     }
-
-    void removeSelf() override
-    {
-        Base::removeSelf();
-        auto property = getSelf()->getProperty();
-        if (property)
-        {
-            property->removePropertyValue(*getSelf());
-        }
-        else
-        {
-            std::puts("null property on removeSelf()");
-        }
-    }
 };
 
 } // comp
