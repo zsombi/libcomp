@@ -9,6 +9,11 @@
 
 #include <mutex>
 
+#else
+
+#include <comp/wrap/functional.hpp>
+#include <comp/wrap/tuple.hpp>
+
 #endif
 
 namespace comp
@@ -18,6 +23,7 @@ namespace comp
 
 using std::mutex;
 using std::lock_guard;
+using std::scoped_lock;
 
 #else
 

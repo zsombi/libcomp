@@ -13,6 +13,7 @@ set (SOURCES
     test_signal.cpp
     test_member_signal.cpp
     test_trackers.cpp
+    test_properties.cpp
 )
 
 add_executable(unittests ${SOURCES})

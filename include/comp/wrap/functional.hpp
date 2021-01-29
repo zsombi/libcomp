@@ -7,9 +7,12 @@ namespace comp
 {
 
 using std::invoke;
+using std::apply;
 using std::ref;
 using std::cref;
 using std::reference_wrapper;
+
+using std::function;
 
 } // namesace comp
 

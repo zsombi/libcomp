@@ -54,4 +54,17 @@ public:
     }
 };
 
+struct SignalChangeCount
+{
+    size_t& callCount;
+    explicit SignalChangeCount(size_t& counter)
+        : callCount(counter)
+    {
+    }
+    void operator()()
+    {
+        ++callCount;
+    }
+};
+
 #endif // TEST_BASE_HPP

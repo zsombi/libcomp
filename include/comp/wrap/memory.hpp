@@ -78,6 +78,12 @@ shared_ptr<Base> make_shared(Arguments&&... args)
     return shared_ptr<Base>(static_cast<Base*>(new Derived(forward<Arguments>(args)...)));
 }
 
+template <class Base, class Derived>
+shared_ptr<Base> make_shared(Derived* ptr)
+{
+    return shared_ptr<Base>(static_cast<Base*>(ptr));
+}
+
 } // namespace comp
 
 #endif // COMP_MEMORY_HPP
