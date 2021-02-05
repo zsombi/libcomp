@@ -17,43 +17,17 @@ namespace comp
 using SlotPtr = shared_ptr<core::Slot<mutex>>;
 using SlotWeakPtr = weak_ptr<core::Slot<mutex>>;
 
-/// The Connection holds a slot connected to a signal. It is a token to a receiver slot connected to
-/// that signal.
-class COMP_API Connection
+class COMP_API Connection : public core::Connection
 {
 public:
-    /// Constructor.
+
     Connection() = default;
 
     /// Constructs the connection with a \a slot.
     Connection(SlotPtr slot)
-        : m_slot(slot)
+        : core::Connection(slot)
     {
     }
-
-    /// Destructor.
-    ~Connection() = default;
-
-    /// Disconnects the slot.
-    void disconnect()
-    {
-        auto slot = m_slot.lock();
-        if (!slot)
-        {
-            return;
-        }
-        slot->disconnect();
-    }
-
-    /// Returns the valid state of the connection.
-    /// \return If the connection is valid, returns \e true, otherwise returns \e false. A connection is invalid when its
-    /// source signal or its trackers are destroyed.
-    operator bool() const
-    {
-        const auto slot = m_slot.lock();
-        return slot && slot->isConnected();
-    }
-
     /// Binds trackers to the slot. Trackers are objects that are used in a slot connected to a signal. To make sure the
     /// slot is only activated if all the objects used in the slot function are valid, bind trackers.
     ///
@@ -75,16 +49,7 @@ public:
     template <class... Trackers>
     Connection& bind(Trackers... trackers);
 
-    /// Returns the slot of the connection.
-    /// \return The slot of the connection. If the connection is not valid, returns \e nullptr.
-    SlotPtr get() const
-    {
-        return m_slot.lock();
-    }
-
 private:
-    SlotWeakPtr m_slot;
-
     /// Binds a \a tracker object to a \a slot. The tracker object is either a shared pointer, a weak pointer,
     /// a ConnectionTracker object, or a shared pointer to a ConnectionTracker.
     template <class TrackerType>
@@ -254,7 +219,7 @@ public:
 
     /// Disconnects the \a connection passed as argument.
     /// \param connection The connection to disconnect. The connection is invalidated and removed from the signal.
-    void disconnect(Connection connection) override;
+    void disconnect(core::Connection connection) override;
 
 protected:
     /// Constructor.

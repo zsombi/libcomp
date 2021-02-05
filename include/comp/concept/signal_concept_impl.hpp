@@ -247,7 +247,7 @@ Connection SignalConcept<ReturnType, Arguments...>::connect(SignalConcept& recei
 }
 
 template <typename ReturnType, typename... Arguments>
-void SignalConcept<ReturnType, Arguments...>::disconnect(Connection connection)
+void SignalConcept<ReturnType, Arguments...>::disconnect(core::Connection connection)
 {
     auto slot = connection.get();
     if (!slot)
