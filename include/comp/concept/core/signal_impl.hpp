@@ -37,7 +37,7 @@ void Slot<LockType>::disconnect()
         auto signal = m_signal;
         m_signal = nullptr;
         relock_guard relock(*this);
-        signal->disconnect(Connection(this->shared_from_this()));
+        signal->disconnect(Signal::Connection(this->shared_from_this()));
     }
 
     auto isConnected = m_isConnected.exchange(false);

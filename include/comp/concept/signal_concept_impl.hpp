@@ -196,25 +196,25 @@ Collector SignalConcept<ReturnType, Arguments...>::operator()(Arguments... argum
 }
 
 template <typename ReturnType, typename... Arguments>
-Connection SignalConcept<ReturnType, Arguments...>::addSlot(SlotPtr slot)
+comp::Connection SignalConcept<ReturnType, Arguments...>::addSlot(SlotPtr slot)
 {
     auto slotActivator = dynamic_pointer_cast<SlotType>(slot);
     COMP_ASSERT(slotActivator);
     lock_guard lock(*this);
     m_slots.push_back(slotActivator);
-    return Connection(m_slots.back());
+    return comp::Connection(m_slots.back());
 }
 
 template <typename ReturnType, typename... Arguments>
 template <class FunctionType>
-enable_if_t<is_member_function_pointer_v<FunctionType>, Connection>
+enable_if_t<is_member_function_pointer_v<FunctionType>, comp::Connection>
 SignalConcept<ReturnType, Arguments...>::connect(shared_ptr<typename function_traits<FunctionType>::object> receiver, FunctionType method)
 {
     using Object = typename function_traits<FunctionType>::object;
     using SlotReturnType = typename function_traits<FunctionType>::return_type;
 
     static_assert(
-        (function_traits<FunctionType>::template is_same_args<Arguments...> || function_traits<FunctionType>::template is_same_args<Connection, Arguments...>) &&
+        (function_traits<FunctionType>::template is_same_args<Arguments...> || function_traits<FunctionType>::template is_same_args<comp::Connection, Arguments...>) &&
         is_same_v<ReturnType, SlotReturnType>,
         "Incompatible slot signature");
 
@@ -224,12 +224,12 @@ SignalConcept<ReturnType, Arguments...>::connect(shared_ptr<typename function_tr
 
 template <typename ReturnType, typename... Arguments>
 template <class FunctionType>
-enable_if_t<!is_base_of_v<SignalConcept<ReturnType, Arguments...>, FunctionType>, Connection>
+enable_if_t<!is_base_of_v<SignalConcept<ReturnType, Arguments...>, FunctionType>, comp::Connection>
 SignalConcept<ReturnType, Arguments...>::connect(const FunctionType& function)
 {
     using SlotReturnType = typename function_traits<FunctionType>::return_type;
     static_assert(
-        (function_traits<FunctionType>::template is_same_args<Arguments...> || function_traits<FunctionType>::template is_same_args<Connection, Arguments...>) &&
+        (function_traits<FunctionType>::template is_same_args<Arguments...> || function_traits<FunctionType>::template is_same_args<comp::Connection, Arguments...>) &&
         is_same_v<ReturnType, SlotReturnType>,
         "Incompatible slot signature");
 
@@ -238,16 +238,16 @@ SignalConcept<ReturnType, Arguments...>::connect(const FunctionType& function)
 }
 
 template <typename ReturnType, typename... Arguments>
-Connection SignalConcept<ReturnType, Arguments...>::connect(SignalConcept& receiver)
+comp::Connection SignalConcept<ReturnType, Arguments...>::connect(SignalConcept& receiver)
 {
     using ReceiverSignal = SignalConcept;
     auto slot = make_shared<core::Slot<mutex>, SignalSlot<ReceiverSignal, ReturnType, Arguments...>>(*this, receiver);
-    receiver.track(Connection(slot));
+    receiver.track(comp::Connection(slot));
     return addSlot(slot);
 }
 
 template <typename ReturnType, typename... Arguments>
-void SignalConcept<ReturnType, Arguments...>::disconnect(core::Connection connection)
+void SignalConcept<ReturnType, Arguments...>::disconnect(core::Signal::Connection connection)
 {
     auto slot = connection.get();
     if (!slot)

@@ -14,10 +14,10 @@ namespace comp
 {
 
 // Forward declarations.
-using SlotPtr = shared_ptr<core::Slot<mutex>>;
-using SlotWeakPtr = weak_ptr<core::Slot<mutex>>;
+using SlotPtr = shared_ptr<core::Signal::SlotCore>;
+using SlotWeakPtr = weak_ptr<core::Signal::SlotCore>;
 
-class COMP_API Connection : public core::Connection
+class COMP_API Connection : public core::Signal::Connection
 {
 public:
 
@@ -25,7 +25,7 @@ public:
 
     /// Constructs the connection with a \a slot.
     Connection(SlotPtr slot)
-        : core::Connection(slot)
+        : core::Signal::Connection(slot)
     {
     }
     /// Binds trackers to the slot. Trackers are objects that are used in a slot connected to a signal. To make sure the
@@ -195,31 +195,31 @@ public:
     /// Adds a \a slot to the signal.
     /// \param slot The slot to add to the signal.
     /// \return The connection token with the signal and the slot.
-    Connection addSlot(SlotPtr slot);
+    comp::Connection addSlot(SlotPtr slot);
 
     /// Connects a \a method of a \a receiver to this signal.
     /// \param receiver The receiver of the connection.
     /// \param method The method to connect.
     /// \return Returns the shared pointer to the connection.
     template <class FunctionType>
-    enable_if_t<is_member_function_pointer_v<FunctionType>, Connection>
+    enable_if_t<is_member_function_pointer_v<FunctionType>, comp::Connection>
     connect(shared_ptr<typename function_traits<FunctionType>::object> receiver, FunctionType method);
 
     /// Connects a \a function, or a lambda to this signal.
     /// \param slot The function, functor or lambda to connect.
     /// \return Returns the shared pointer to the connection.
     template <class FunctionType>
-    enable_if_t<!is_base_of_v<SignalConceptType, FunctionType>, Connection>
+    enable_if_t<!is_base_of_v<SignalConceptType, FunctionType>, comp::Connection>
     connect(const FunctionType& function);
 
     /// Creates a connection between this signal and a \a receiver signal.
     /// \param receiver The receiver signal connected to this signal.
     /// \return Returns the shared pointer to the connection.
-    Connection connect(SignalConcept& receiver);
+    comp::Connection connect(SignalConcept& receiver);
 
     /// Disconnects the \a connection passed as argument.
     /// \param connection The connection to disconnect. The connection is invalidated and removed from the signal.
-    void disconnect(core::Connection connection) override;
+    void disconnect(core::Signal::Connection connection) override;
 
 protected:
     /// Constructor.
