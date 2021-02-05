@@ -584,3 +584,32 @@ TEST_F(SignalTest, signal2)
     auto object = comp::make_shared<Object1>();
     comp::Signal<void(Object1::*)()> sig(*object);
 }
+
+
+class Benchmark : public SignalTest
+{
+public:
+    comp::Signal<void()> sigVoid;
+    size_t lambdaCount = 0u;
+
+    explicit Benchmark()
+    {
+        auto lambda = [this]()
+        {
+            ++lambdaCount;
+        };
+        for (auto i = 0u; i < 50; ++i)
+        {
+            sigVoid.connect(lambda);
+            sigVoid.connect(&Benchmark::function);
+        }
+    }
+};
+
+TEST_F(Benchmark, benchmark)
+{
+    for (auto i = 0u; i < 100000; ++i)
+    {
+        sigVoid();
+    }
+}
