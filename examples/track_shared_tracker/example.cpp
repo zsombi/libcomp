@@ -26,7 +26,7 @@ int main()
     };
 
     // Connect slot and bind tracker.
-    signal.connect(slot).bind(object);
+    signal.connect(slot).bindTrackers(object);
 
     // Emit the signal.
     signal();
@@ -44,7 +44,7 @@ int main()
     };
 
     // Connect slot and bind tracker.
-    signal.connect(untrackSlot).bind(object);
+    signal.connect(untrackSlot).bindTrackers(object);
 
     // Emit the signal.
     signal();

@@ -20,7 +20,6 @@ using SlotWeakPtr = weak_ptr<core::Signal::SlotCore>;
 class COMP_API Connection : public core::Signal::Connection
 {
 public:
-
     Connection() = default;
 
     /// Constructs the connection with a \a slot.
@@ -47,13 +46,13 @@ public:
     /// \return This connection.
     /// \see SlotInterface::bind()
     template <class... Trackers>
-    Connection& bind(Trackers... trackers);
+    Connection& bindTrackers(Trackers... trackers);
 
 private:
     /// Binds a \a tracker object to a \a slot. The tracker object is either a shared pointer, a weak pointer,
     /// a ConnectionTracker object, or a shared pointer to a ConnectionTracker.
     template <class TrackerType>
-    void bindOne(SlotPtr slot, TrackerType tracker);
+    void bindTracker(SlotPtr slot, TrackerType tracker);
 };
 
 /// To track the lifetime of a connection based on an arbitrary object that is not a smart pointer,
@@ -155,7 +154,7 @@ protected:
     }
 
     /// To implement slot specific activation, override this method.
-    virtual ReturnType activateOverride(Arguments&&...) = 0;
+    function<ReturnType(Arguments&&...)> activateOverride;
 };
 
 /// The SignalConcept defines the concept of a signal. Defined as a lockable for convenience, holds the
@@ -217,13 +216,9 @@ public:
     /// \return Returns the shared pointer to the connection.
     comp::Connection connect(SignalConcept& receiver);
 
-    /// Disconnects the \a connection passed as argument.
-    /// \param connection The connection to disconnect. The connection is invalidated and removed from the signal.
-    void disconnect(core::Signal::Connection connection) override;
-
 protected:
     /// Constructor.
-    explicit SignalConcept() = default;
+    explicit SignalConcept();
 
     /// The container of the connections.
     FlagGuard m_emitGuard;

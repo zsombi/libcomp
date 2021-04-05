@@ -72,7 +72,7 @@ TEST_F(TrackerTest, connectToTrackable)
     auto destination = comp::make_unique<TestTracker>();
 
     auto connection = signal.connect([](){});
-    connection.bind(destination.get());
+    connection.bindTrackers(destination.get());
     EXPECT_TRUE(connection);
     destination.reset();
     EXPECT_FALSE(connection);
@@ -87,7 +87,7 @@ TEST_F(TrackerTest, connectToWeakPointer)
     auto destination = comp::make_shared<Object>();
 
     auto connection = signal.connect([](){});
-    connection.bind(destination);
+    connection.bindTrackers(destination);
     EXPECT_TRUE(connection);
     destination.reset();
     EXPECT_FALSE(connection);
@@ -105,7 +105,7 @@ TEST_F(TrackerTest, connectToTrackableAndWeakPointer)
     auto t2 = comp::make_unique<TestTracker>();
 
     auto connection = signal.connect([](){});
-    connection.bind(t1, t2.get());
+    connection.bindTrackers(t1, t2.get());
     EXPECT_TRUE(connection);
     t2.reset();
     EXPECT_FALSE(connection);
@@ -121,8 +121,8 @@ TEST_F(TrackerTest, bindTrackerToMultipleSignals)
     IntSignalType intSignal;
     auto tracker = comp::make_unique<TestTracker>();
 
-    auto connection1 = voidSignal.connect([](){}).bind(tracker.get());
-    auto connection2 = intSignal.connect([](){ return 0; }).bind(tracker.get());
+    auto connection1 = voidSignal.connect([](){}).bindTrackers(tracker.get());
+    auto connection2 = intSignal.connect([](){ return 0; }).bindTrackers(tracker.get());
 
     EXPECT_TRUE(connection1);
     EXPECT_TRUE(connection2);
@@ -145,7 +145,7 @@ TEST_F(TrackerTest, deleteTrackableInSlotDisconnects)
 
     // connect 3 slots
     signal.connect([](){});
-    auto connection = signal.connect(deleter).bind(tracker.get());
+    auto connection = signal.connect(deleter).bindTrackers(tracker.get());
     signal.connect([](){});
     EXPECT_EQ(3, signal().size());
     EXPECT_FALSE(tracker);
@@ -168,7 +168,7 @@ TEST_F(TrackerTest, deleteSharedPtrTrackableInSlotDisconnects)
 
     // connect 3 slots
     signal.connect([](){});
-    auto connection = signal.connect(deleter).bind(tracker);
+    auto connection = signal.connect(deleter).bindTrackers(tracker);
     signal.connect([](){});
     EXPECT_EQ(3, signal().size());
     EXPECT_FALSE(tracker);
@@ -192,7 +192,7 @@ TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_sharedPtr)
 
     // connect 3 slots
     signal.connect([](){});
-    auto connection = signal.connect(deleter).bind(tracker1, tracker2.get());
+    auto connection = signal.connect(deleter).bindTrackers(tracker1, tracker2.get());
     signal.connect([](){});
     EXPECT_EQ(3, signal().size());
     EXPECT_FALSE(tracker1);
@@ -218,7 +218,7 @@ TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_tracker)
 
     // connect 3 slots
     signal.connect([](){});
-    auto connection = signal.connect(deleter).bind(tracker1, tracker2.get());
+    auto connection = signal.connect(deleter).bindTrackers(tracker1, tracker2.get());
     signal.connect([](){});
     EXPECT_EQ(3, signal().size());
     EXPECT_FALSE(tracker2);
@@ -245,8 +245,8 @@ TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_sharedTrackerPtr)
 
     // connect 3 slots
     signal.connect([](){});
-    auto connection = signal.connect(deleter).bind(tracker1, tracker2);
-    signal.connect([](){}).bind(tracker2);
+    auto connection = signal.connect(deleter).bindTrackers(tracker1, tracker2);
+    signal.connect([](){}).bindTrackers(tracker2);
     // The 3rd connection is disconnected by tracker2.
     EXPECT_EQ(2, signal().size());
     EXPECT_FALSE(tracker2);
@@ -273,8 +273,8 @@ TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_intrusiveTrackerPtr
 
     // connect 3 slots
     signal.connect([](){});
-    auto connection = signal.connect(deleter).bind(tracker1, tracker2);
-    signal.connect([](){}).bind(tracker2);
+    auto connection = signal.connect(deleter).bindTrackers(tracker1, tracker2);
+    signal.connect([](){}).bindTrackers(tracker2);
     EXPECT_EQ(2, signal().size());
     EXPECT_FALSE(tracker2);
     // the other tracker is not destroyed.

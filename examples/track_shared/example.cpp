@@ -25,7 +25,7 @@ int main()
     };
 
     // Connect slot and bind tracker.
-    auto connection = signal.connect(slot).bind(object);
+    auto connection = signal.connect(slot).bindTrackers(object);
 
     // Emit the signal.
     signal();

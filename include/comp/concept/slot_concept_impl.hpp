@@ -102,6 +102,7 @@ struct SlotTracker final : public core::Slot<mutex>::TrackerInterface
 template <typename ReturnType, typename... Arguments>
 ReturnType SlotConcept<ReturnType, Arguments...>::activate(Arguments&&... args)
 {
+    COMP_ASSERT(activateOverride);
     if (!this->isConnected())
     {
         throw bad_slot();
@@ -111,7 +112,7 @@ ReturnType SlotConcept<ReturnType, Arguments...>::activate(Arguments&&... args)
 }
 
 template <class... Trackers>
-Connection& Connection::bind(Trackers... trackers)
+Connection& Connection::bindTrackers(Trackers... trackers)
 {
     COMP_ASSERT(*this);
     auto slot = m_slot.lock();
@@ -119,14 +120,14 @@ Connection& Connection::bind(Trackers... trackers)
 
     auto binder = [this, &slot](auto tracker)
     {
-        this->bindOne(slot, tracker);
+        this->bindTracker(slot, tracker);
     };
     for_each_arg(binder, trackers...);
     return *this;
 }
 
 template <class TrackerType>
-void Connection::bindOne(SlotPtr slot, TrackerType tracker)
+void Connection::bindTracker(SlotPtr slot, TrackerType tracker)
 {
     static_assert (is_valid_trackable_arg<TrackerType>, "Invalid trackable");
 

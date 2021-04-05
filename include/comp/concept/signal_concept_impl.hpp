@@ -18,64 +18,82 @@ namespace
 template <typename FunctionType, typename ReturnType, typename... Arguments>
 class COMP_TEMPLATE_API FunctionSlot final : public SlotConcept<ReturnType, Arguments...>
 {
-    ReturnType activateOverride(Arguments&&... args) override
-    {
-        if constexpr (function_traits<FunctionType>::arity == 0u)
-        {
-            return invoke(m_function, forward<Arguments>(args)...);
-        }
-        else if constexpr (is_same_v<Connection, typename function_traits<FunctionType>::template argument<0u>::type>)
-        {
-            return invoke(m_function, Connection(this->shared_from_this()), forward<Arguments>(args)...);
-        }
-        else
-        {
-            return invoke(m_function, forward<Arguments>(args)...);
-        }
-    }
+    FunctionType m_function;
 
 public:
     explicit FunctionSlot(core::Signal& signal, const FunctionType& function)
         : SlotConcept<ReturnType, Arguments...>(signal)
         , m_function(function)
     {
+        if constexpr (function_traits<FunctionType>::arity == 0u)
+        {
+            this->activateOverride = [this](Arguments&&... args) -> ReturnType
+            {
+                return invoke(this->m_function, forward<Arguments>(args)...);
+            };
+        }
+        else if constexpr (is_same_v<comp::Connection, typename function_traits<FunctionType>::template argument<0u>::type>)
+        {
+            this->activateOverride = [this](Arguments&&... args) -> ReturnType
+            {
+                return invoke(this->m_function, comp::Connection(this->shared_from_this()), forward<Arguments>(args)...);
+            };
+        }
+        else
+        {
+            this->activateOverride = [this](Arguments&&... args) -> ReturnType
+            {
+                return invoke(this->m_function, forward<Arguments>(args)...);
+            };
+        }
     }
-
-private:
-    FunctionType m_function;
 };
 
 template <class TargetObject, typename FunctionType, typename ReturnType, typename... Arguments>
 class COMP_TEMPLATE_API MethodSlot final : public SlotConcept<ReturnType, Arguments...>
 {
-    ReturnType activateOverride(Arguments&&... arguments) override
-    {
-        auto slotHost = m_target.lock();
-        if (!slotHost)
-        {
-            throw bad_slot();
-        }
-
-        if constexpr (function_traits<FunctionType>::arity == 0u)
-        {
-            return invoke(m_function, slotHost, forward<Arguments>(arguments)...);
-        }
-        else if constexpr (is_same_v<Connection, typename function_traits<FunctionType>::template argument<0u>::type>)
-        {
-            return invoke(m_function, slotHost, Connection(this->shared_from_this()), forward<Arguments>(arguments)...);
-        }
-        else
-        {
-            return invoke(m_function, slotHost, forward<Arguments>(arguments)...);
-        }
-    }
-
 public:
     explicit MethodSlot(core::Signal& signal, shared_ptr<TargetObject> target, const FunctionType& function)
         : SlotConcept<ReturnType, Arguments...>(signal)
         , m_target(target)
         , m_function(function)
     {
+        if constexpr (function_traits<FunctionType>::arity == 0u)
+        {
+            this->activateOverride = [this](Arguments&&... args) -> ReturnType
+            {
+                auto slotHost = this->m_target.lock();
+                if (!slotHost)
+                {
+                    throw bad_slot();
+                }
+                return invoke(this->m_function, slotHost, forward<Arguments>(args)...);
+            };
+        }
+        else if constexpr (is_same_v<comp::Connection, typename function_traits<FunctionType>::template argument<0u>::type>)
+        {
+            this->activateOverride = [this](Arguments&&... args) -> ReturnType
+            {
+                auto slotHost = this->m_target.lock();
+                if (!slotHost)
+                {
+                    throw bad_slot();
+                }
+                return invoke(this->m_function, slotHost, comp::Connection(this->shared_from_this()), forward<Arguments>(args)...);
+            };
+        }
+        else
+        {
+            this->activateOverride = [this](Arguments&&... args) -> ReturnType
+            {
+                auto slotHost = this->m_target.lock();
+                if (!slotHost)
+                {
+                    throw bad_slot();
+                }
+                return invoke(this->m_function, slotHost, forward<Arguments>(args)...);
+            };
+        }
     }
 
 private:
@@ -86,23 +104,25 @@ private:
 template <typename ReceiverSignal, typename ReturnType, typename... Arguments>
 class COMP_TEMPLATE_API SignalSlot final : public SlotConcept<ReturnType, Arguments...>
 {
-    ReturnType activateOverride(Arguments&&... arguments) override
-    {
-        if constexpr (is_void_v<ReturnType>)
-        {
-            invoke(*m_receiver, forward<Arguments>(arguments)...);
-        }
-        else
-        {
-            return invoke(*m_receiver, forward<Arguments>(arguments)...);
-        }
-    }
-
 public:
     explicit SignalSlot(core::Signal& signal, ReceiverSignal& receiver)
         : SlotConcept<ReturnType, Arguments...>(signal)
         , m_receiver(&receiver)
     {
+        if constexpr (is_void_v<ReturnType>)
+        {
+            this->activateOverride = [this](Arguments&&... args)
+            {
+                invoke(*this->m_receiver, forward<Arguments>(args)...);
+            };
+        }
+        else
+        {
+            this->activateOverride = [this](Arguments&&... args) -> ReturnType
+            {
+                return invoke(*this->m_receiver, forward<Arguments>(args)...);
+            };
+        }
     }
 
 private:
@@ -127,6 +147,30 @@ bool Collector<DerivedCollector>::collect(SlotType& slot, Arguments&&... argumen
     }
 }
 
+
+template <typename ReturnType, typename... Arguments>
+SignalConcept<ReturnType, Arguments...>::SignalConcept()
+{
+    disconnect = [this](core::Signal::Connection connection)
+    {
+        auto slot = connection.get();
+        if (!slot)
+        {
+            return;
+        }
+        else
+        {
+            lock_guard lock(*this);
+            auto it = find(m_slots, slot);
+            if (it == m_slots.end())
+            {
+                return;
+            }
+            erase(m_slots, slot);
+        }
+        connection.disconnect();
+    };
+}
 
 template <typename ReturnType, typename... Arguments>
 SignalConcept<ReturnType, Arguments...>::~SignalConcept()
@@ -198,7 +242,7 @@ Collector SignalConcept<ReturnType, Arguments...>::operator()(Arguments... argum
 template <typename ReturnType, typename... Arguments>
 comp::Connection SignalConcept<ReturnType, Arguments...>::addSlot(SlotPtr slot)
 {
-    auto slotActivator = dynamic_pointer_cast<SlotType>(slot);
+    auto slotActivator = static_pointer_cast<SlotType>(slot);
     COMP_ASSERT(slotActivator);
     lock_guard lock(*this);
     m_slots.push_back(slotActivator);
@@ -219,7 +263,7 @@ SignalConcept<ReturnType, Arguments...>::connect(shared_ptr<typename function_tr
         "Incompatible slot signature");
 
     auto slot = make_shared<core::Slot<mutex>, MethodSlot<Object, FunctionType, SlotReturnType, Arguments...>>(*this, receiver, method);
-    return addSlot(slot).bind(receiver);
+    return addSlot(slot).bindTrackers(receiver);
 }
 
 template <typename ReturnType, typename... Arguments>
@@ -244,27 +288,6 @@ comp::Connection SignalConcept<ReturnType, Arguments...>::connect(SignalConcept&
     auto slot = make_shared<core::Slot<mutex>, SignalSlot<ReceiverSignal, ReturnType, Arguments...>>(*this, receiver);
     receiver.track(comp::Connection(slot));
     return addSlot(slot);
-}
-
-template <typename ReturnType, typename... Arguments>
-void SignalConcept<ReturnType, Arguments...>::disconnect(core::Signal::Connection connection)
-{
-    auto slot = connection.get();
-    if (!slot)
-    {
-        return;
-    }
-    else
-    {
-        lock_guard lock(*this);
-        auto it = find(m_slots, slot);
-        if (it == m_slots.end())
-        {
-            return;
-        }
-        erase(m_slots, slot);
-    }
-    connection.disconnect();
 }
 
 } // namespace comp

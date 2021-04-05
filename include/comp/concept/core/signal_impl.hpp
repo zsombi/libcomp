@@ -47,7 +47,10 @@ void Slot<LockType>::disconnect()
         return;
     }
 
-    disconnectOverride();
+    if (disconnectOverride)
+    {
+        disconnectOverride();
+    }
     m_trackers.clear();
 }
 

@@ -4,6 +4,7 @@
 #include <comp/config.hpp>
 #include <comp/utility/lockable.hpp>
 #include <comp/utility/tracker.hpp>
+#include <comp/wrap/functional.hpp>
 #include <comp/wrap/memory.hpp>
 #include <comp/wrap/mutex.hpp>
 #include <comp/wrap/vector.hpp>
@@ -32,7 +33,7 @@ public:
     };
     using TrackerPtr = shared_ptr<TrackerInterface>;
 
-    virtual ~Slot() = default;
+    ~Slot() = default;
 
     /// Checks whether a slot is connected.
     /// \return If the slot is connected, returns \e true, otherwise returns \e false.
@@ -54,9 +55,7 @@ protected:
     }
 
     /// To implement slot specific disconnect function, override this method.
-    virtual void disconnectOverride()
-    {
-    }
+    function<void()> disconnectOverride;
 
     /// The container with the binded trackers.
     using TrackersContainer = vector<TrackerPtr>;
@@ -126,13 +125,9 @@ public:
         SlotWeakPtr m_slot;
     };
 
-
-    /// Destructor.
-    virtual ~Signal() = default;
-
-    /// Disconnects a \a connection.
+    /// Disconnects the \a connection passed as argument.
     /// \param connection The connection to disconnect.
-    virtual void disconnect(Connection connection) = 0;
+    function<void(Connection)> disconnect;
 };
 
 }} // comp::core
