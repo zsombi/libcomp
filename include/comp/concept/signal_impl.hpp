@@ -166,25 +166,25 @@ protected:
     }
 };
 
+template <typename Ret>
+struct LastRet
+{
+    Ret m_lastRet = Ret();
+    void collect(Ret& result)
+    {
+        m_lastRet = result;
+    }
+};
+template <>
+struct LastRet<void>
+{
+};
+
 // A connection to an other signal with similar signature.
 template <class Receiver, typename TRet, typename... TArgs>
 class SignalConnection final : public SignalConceptImpl<TRet, TArgs...>::SlotType
 {
     Receiver* m_receiver = nullptr;
-
-    template <typename Ret = TRet>
-    struct LastRet
-    {
-        Ret m_lastRet = Ret();
-        void collect(TRet& result)
-        {
-            m_lastRet = result;
-        }
-    };
-    template <>
-    struct LastRet<void>
-    {
-    };
 
 public:
     explicit SignalConnection(SignalConcept& sender, Receiver& receiver)
@@ -196,7 +196,7 @@ public:
 protected:
     TRet activateOverride(TArgs&&... args)
     {
-        auto collector = LastRet();
+        auto collector = LastRet<TRet>();
         m_receiver->emit(collector, comp::forward<TArgs>(args)...);
         if constexpr (!comp::is_void_v<TRet>)
         {
