@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include <comp/wrap/memory.hpp>
+#include <comp/wraps>
 
 namespace
 {

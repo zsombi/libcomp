@@ -5,7 +5,6 @@ set(HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/wrap/exception.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/wrap/function_traits.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/wrap/functional.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/wrap/intrusive_ptr.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/wrap/memory.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/wrap/mutex.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/wrap/tuple.hpp
@@ -16,16 +15,18 @@ set(HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/utility/lockable.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/utility/tracker.hpp
 
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/concept/core/signal.hpp
-
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/concept/signal.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/config.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/signal.hpp
+
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/signal
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/wraps
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/utilities
+
     )
 
 set(PRIVATE_HEADERS
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/concept/slot_concept_impl.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/concept/signal_concept_impl.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/comp/concept/signal_impl.hpp
     )
 
 set(SOURCES

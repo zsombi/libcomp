@@ -10,6 +10,6 @@ set (SOURCES
 )
 
 add_executable(${PROJECT} ${SOURCES})
-#target_link_libraries(connect ${COMP_TEST_LIBS} comp_lib)
+target_link_libraries(disconnect ${COMP_TEST_LIBS} comp_lib)
 #target_include_directories(unittests PRIVATE ${COMP_SOURCES}/tests)
 configure_target(${PROJECT})

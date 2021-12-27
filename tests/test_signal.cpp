@@ -1,10 +1,9 @@
 #include "test_base.hpp"
-#include <comp/signal.hpp>
 
 namespace
 {
 
-class Object1 : public comp::enable_shared_from_this<Object1>
+class Object1 : public comp::DeleteObserver::Notifier, public comp::enable_shared_from_this<Object1>
 {
 public:
     void methodWithNoArg()
@@ -12,9 +11,9 @@ public:
         ++methodCallCount;
     }
 
-    void autoDisconnect(comp::Connection connection)
+    void autoDisconnect(comp::ConnectionPtr connection)
     {
-        connection.disconnect();
+        connection->disconnect();
     }
 
     size_t methodCallCount = 0u;
@@ -29,7 +28,7 @@ TEST_F(SignalTest, connectToFunction)
     auto connection = signal.connect(&function);
     EXPECT_TRUE(connection);
 
-    EXPECT_EQ(1, signal().size());
+    EXPECT_EQ(1, signal());
     EXPECT_EQ(1u, functionCallCount);
 }
 
@@ -131,53 +130,55 @@ TEST_F(InterconnectSignalTest, interconnectSignals)
     EXPECT_TRUE(connection1);
     EXPECT_TRUE(connection2);
     // signal1 emit activates both signals' slots.
-    EXPECT_EQ(2u, signal1().size());
+    EXPECT_EQ(2u, signal1());
     EXPECT_EQ(1, signal1Count);
     EXPECT_EQ(1, signal2Count);
     // signal2 emit also activates both signals' slots.
-    EXPECT_EQ(2u, signal2().size());
+    EXPECT_EQ(2u, signal2());
     EXPECT_EQ(2, signal1Count);
     EXPECT_EQ(2, signal2Count);
 }
 
-// When the application developer emits the signal from a slot that is connected to that signal, the signal emit shall not happen
+// When the application developer emits the signal from a slot that is connected to that signal,
+// the signal emit shall not happen.
 TEST_F(SignalTest, emitSignalThatActivatedTheSlot)
 {
     comp::Signal<void()> signal;
 
     auto slot = [&signal]()
     {
-        EXPECT_EQ(0u, signal().size());
+        EXPECT_EQ(-1, signal());
     };
     signal.connect(slot);
 
-    EXPECT_EQ(1u, signal().size());
+    EXPECT_EQ(1u, signal());
 }
 
-// It should be possible for an application developer to receive the connection that is associated to a slot as the first argument.
+// It should be possible for an application developer to receive the connection that is associated
+// to a slot as the first argument.
 TEST_F(SignalTest, slotWithConnection)
 {
     using VoidSignalType = comp::Signal<void()>;
     using IntSignalType = comp::Signal<void(int)>;
 
-    auto onVoidSignal = [](comp::Connection connection)
+    auto onVoidSignal = [](comp::ConnectionPtr connection)
     {
-        connection.disconnect();
+        connection->disconnect();
     };
-    auto onIntSignal = [](comp::Connection connection, int)
+    auto onIntSignal = [](comp::ConnectionPtr connection, int)
     {
-        connection.disconnect();
+        connection->disconnect();
     };
     VoidSignalType voidSignal;
     IntSignalType intSignal;
     auto voidConnection = voidSignal.connect(onVoidSignal);
-    EXPECT_TRUE(voidConnection);
+    EXPECT_TRUE(voidConnection->isValid());
     auto intConnection = intSignal.connect(onIntSignal);
-    EXPECT_TRUE(intConnection);
+    EXPECT_TRUE(intConnection->isValid());
     voidSignal();
-    EXPECT_FALSE(voidConnection);
+    EXPECT_FALSE(voidConnection->isValid());
     intSignal(10);
-    EXPECT_FALSE(intConnection);
+    EXPECT_FALSE(intConnection->isValid());
 }
 
 // It should be possible for an application developer to receive the connection that is associated to a slot as the first argument.
@@ -189,9 +190,9 @@ TEST_F(SignalTest, methodSlotWithConnection)
     auto object = comp::make_shared<Object1>();
 
     auto voidConnection = voidSignal.connect(object, &Object1::autoDisconnect);
-    EXPECT_TRUE(voidConnection);
+    EXPECT_TRUE(voidConnection->isValid());
     voidSignal();
-    EXPECT_FALSE(voidConnection);
+    EXPECT_FALSE(voidConnection->isValid());
 }
 
 // The application developer can disconnect a connection from a signal using the signal disconnect function.
@@ -199,15 +200,15 @@ TEST_F(SignalTest, disconnectWithSignal)
 {
     using SignalType = comp::Signal<void()>;
     SignalType signal;
-    auto slot = [](comp::Connection connection)
+    auto slot = [](comp::ConnectionPtr connection)
     {
-        connection.disconnect();
+        connection->disconnect();
     };
     auto connection = signal.connect(slot);
-    EXPECT_TRUE(connection);
-    EXPECT_EQ(1u, signal().size());
-    EXPECT_FALSE(connection);
-    EXPECT_EQ(0u, signal().size());
+    EXPECT_TRUE(connection->isValid());
+    EXPECT_EQ(1u, signal());
+    EXPECT_FALSE(connection->isValid());
+    EXPECT_EQ(0u, signal());
 }
 
 // The application developer can connect the same function multiple times.
@@ -218,7 +219,7 @@ TEST_F(SignalTest, connectFunctionManyTimes)
     signal.connect(&function);
     signal.connect(&function);
 
-    EXPECT_EQ(functionCallCount, signal().size());
+    EXPECT_EQ(functionCallCount, signal());
 }
 
 // The application developer can connect the same method multiple times.
@@ -230,7 +231,7 @@ TEST_F(SignalTest, connectMethodManyTimes)
     signal.connect(object, &Object1::methodWithNoArg);
     signal.connect(object, &Object1::methodWithNoArg);
 
-    EXPECT_EQ(object->methodCallCount, signal().size());
+    EXPECT_EQ(object->methodCallCount, signal());
 }
 
 // The application developer can connect the same lambda multiple times.
@@ -243,7 +244,7 @@ TEST_F(SignalTest, connectLambdaManyTimes)
     signal.connect(slot);
     signal.connect(slot);
 
-    EXPECT_EQ(invokeCount, signal().size());
+    EXPECT_EQ(invokeCount, signal());
 }
 
 // The application developer can connect the activated signal to a slot from an activated slot.
@@ -257,9 +258,9 @@ TEST_F(SignalTest, connectToTheInvokingSignal)
         signal.connect(&function);
     };
     signal.connect(slot);
-    EXPECT_EQ(1, signal().size());
-    EXPECT_EQ(2, signal().size());
-    EXPECT_EQ(3, signal().size());
+    EXPECT_EQ(1, signal());
+    EXPECT_EQ(2, signal());
+    EXPECT_EQ(3, signal());
 }
 
 // When a signal is blocked, it shall not activate its connections.
@@ -272,13 +273,13 @@ TEST_F(SignalTest, blockSignal)
     signal.connect([](){});
 
     signal.setBlocked(true);
-    EXPECT_EQ(0, signal().size());
+    EXPECT_EQ(-1, signal());
     signal.setBlocked(false);
-    EXPECT_EQ(3, signal().size());
+    EXPECT_EQ(3, signal());
 }
 
-// The application developer can block the signal from a slot. Blocking the signal from the slot does not affect the
-// active emit loop of the signal.
+// The application developer can block the signal from a slot. Blocking the signal from the slot
+// does not affect the active emit loop of the signal.
 TEST_F(SignalTest, blockSignalFromSlot)
 {
     using SignalType = comp::Signal<void()>;
@@ -287,8 +288,8 @@ TEST_F(SignalTest, blockSignalFromSlot)
     signal.connect([&signal](){ signal.setBlocked(true); });
     signal.connect([](){});
 
-    EXPECT_EQ(3, signal().size());
-    EXPECT_EQ(0, signal().size());
+    EXPECT_EQ(3, signal());
+    EXPECT_EQ(-1, signal());
 }
 
 // When the application developer connects the activated signal to a slot from an activated slot,
@@ -303,10 +304,10 @@ TEST_F(SignalTest, connectionFromSlotGetsActivatedNextTime)
         signal.connect(&function);
     };
     signal.connect(slot);
-    EXPECT_EQ(1, signal().size());
+    EXPECT_EQ(1, signal());
     EXPECT_EQ(0, functionCallCount);
 
-    EXPECT_EQ(2, signal().size());
+    EXPECT_EQ(2, signal());
     EXPECT_EQ(1, functionCallCount);
 }
 
@@ -332,9 +333,9 @@ TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted)
     EXPECT_EQ(1, weakObject.use_count());
     signal1();
     EXPECT_EQ(0, weakObject.use_count());
-    EXPECT_FALSE(connection1);
-    EXPECT_FALSE(connection2);
-    EXPECT_FALSE(connection3);
+    EXPECT_FALSE(connection1->isValid());
+    EXPECT_FALSE(connection2->isValid());
+    EXPECT_FALSE(connection3->isValid());
 }
 TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted_noConenctionHolding)
 {
@@ -352,9 +353,9 @@ TEST_F(SignalTest, signalsConnectedToAnObjectThatGetsDeleted_noConenctionHolding
         object.reset();
     };
     signal1.connect(objectDeleter);
-    EXPECT_EQ(2u, signal1().size());
-    EXPECT_EQ(0u, signal2().size());
-    EXPECT_EQ(0u, signal3().size());
+    EXPECT_EQ(2u, signal1());
+    EXPECT_EQ(0u, signal2());
+    EXPECT_EQ(0u, signal3());
 }
 TEST_F(SignalTest, receiverObjectDeleted)
 {
@@ -363,9 +364,9 @@ TEST_F(SignalTest, receiverObjectDeleted)
     auto object = comp::make_shared<Object1>();
     signal.connect(object, &Object1::methodWithNoArg);
 
-    EXPECT_EQ(1u, signal().size());
+    EXPECT_EQ(1u, signal());
     object.reset();
-    EXPECT_EQ(0u, signal().size());
+    EXPECT_EQ(0u, signal());
 }
 
 // When the signal is destroyed in a slot connected to that signal, it invalidates the connections of the signal.
@@ -383,11 +384,11 @@ TEST_F(SignalTest, deleteEmitterSignalFromSlot)
     auto connection2 = signal->connect([](){});
     auto connection3 = signal->connect([](){});
 
-    EXPECT_EQ(1u, (*signal)().size());
+    EXPECT_EQ(1u, (*signal)());
     EXPECT_EQ(nullptr, signal);
-    EXPECT_FALSE(connection1);
-    EXPECT_FALSE(connection2);
-    EXPECT_FALSE(connection3);
+    EXPECT_FALSE(connection1->isValid());
+    EXPECT_FALSE(connection2->isValid());
+    EXPECT_FALSE(connection3->isValid());
 }
 
 TEST_F(SignalTest, deleteConnectedSignal)
@@ -399,15 +400,10 @@ TEST_F(SignalTest, deleteConnectedSignal)
 
     auto connection = sender->connect(*receiver);
     EXPECT_TRUE(connection);
-    EXPECT_EQ(1u, (*sender)().size());
+    EXPECT_EQ(1u, (*sender)());
     receiver.reset();
-    EXPECT_FALSE(connection);
-    EXPECT_EQ(0u, (*sender)().size());
-}
-
-TEST_F(SignalTest, deleteConnectedSignalInSlotBeforeActivation)
-{
-
+    EXPECT_FALSE(connection->isValid());
+    EXPECT_EQ(0u, (*sender)());
 }
 
 struct Functor
@@ -427,7 +423,7 @@ TEST_F(SignalTest, connectToFunctor)
     EXPECT_TRUE(connection);
 
     int value = 10;
-    EXPECT_EQ(1u, signal(value).size());
+    EXPECT_EQ(1u, signal(value));
     EXPECT_EQ(100, value);
 }
 
@@ -522,22 +518,20 @@ public:
         object->intSignal.connect(onTen);
     }
 
-    class Accumulate : public comp::Collector<Accumulate>, public comp::vector<int>
+    class Accumulate : public comp::vector<int>
     {
     public:
-        bool handleResult(comp::Connection, int result)
+        void collect(int result)
         {
             push_back(result);
-            return true;
         }
     };
-    class Summ : public comp::Collector<Summ>
+    class Summ
     {
     public:
-        bool handleResult(comp::Connection, int result)
+        void collect(int result)
         {
             grandTotal += result;
-            return true;
         }
         int grandTotal = 0;
     };
@@ -547,7 +541,8 @@ public:
 // that has a return value.
 TEST_F(TestEmitWithCollector, accumulateResults)
 {
-    auto collector = intSignal.operator()<Accumulate>();
+    auto collector = Accumulate();
+    intSignal.emit(collector);
     EXPECT_EQ(2u, collector.size());
     EXPECT_EQ(1, collector[0]);
     EXPECT_EQ(10, collector[1]);
@@ -557,7 +552,8 @@ TEST_F(TestEmitWithCollector, accumulateResults)
 // that has a return value.
 TEST_F(TestEmitWithCollector, accumulateResults_MemberSignal)
 {
-    auto collector = object->intSignal.operator()<Accumulate>();
+    auto collector = Accumulate();
+    object->intSignal.emit(collector);
     EXPECT_EQ(2u, collector.size());
     EXPECT_EQ(1, collector[0]);
     EXPECT_EQ(10, collector[1]);
@@ -567,7 +563,8 @@ TEST_F(TestEmitWithCollector, accumulateResults_MemberSignal)
 // that has a return value.
 TEST_F(TestEmitWithCollector, summResults)
 {
-    auto collector = intSignal.operator()<Summ>();
+    auto collector = Summ();
+    intSignal.emit(collector);
     EXPECT_EQ(11, collector.grandTotal);
 }
 
@@ -575,7 +572,8 @@ TEST_F(TestEmitWithCollector, summResults)
 // that has a return value.
 TEST_F(TestEmitWithCollector, summResults_MemberSignal)
 {
-    auto collector = object->intSignal.operator()<Summ>();
+    auto collector = Summ();
+    object->intSignal.emit(collector);
     EXPECT_EQ(11, collector.grandTotal);
 }
 

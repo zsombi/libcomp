@@ -1,7 +1,7 @@
-#include <comp/signal.hpp>
+#include <comp/signal>
 #include <iostream>
 
-class Object : public comp::ConnectionTracker, public comp::enable_shared_from_this<Object>
+class Object : public comp::DeleteObserver::Notifier
 {
 public:
     explicit Object() = default;
@@ -11,40 +11,39 @@ int main()
 {
     comp::Signal<void()> signal;
 
-    auto object = comp::make_shared<comp::ConnectionTracker, Object>();
+    auto object = comp::make_unique<Object>();
 
     // Note: capture shared objects as weak pointer!
-    auto slot = [weakObject = comp::weak_ptr<comp::ConnectionTracker>(object)]()
+    auto slot = [&object]()
     {
-        auto locked = weakObject.lock();
-        if (!locked)
+        if (!object)
         {
             return;
         }
-        std::puts("Disconnect slots tracked.");
-        locked->clearTrackables();
+        std::puts("Resetting the object disconnects the watcher connection.");
+        object.reset();
     };
 
-    // Connect slot and bind tracker.
-    signal.connect(slot).bindTrackers(object);
+    // Connect slot and watch the object deletion.
+    signal.connect(slot)->watch(*object);
 
     // Emit the signal.
     signal();
 
-    // Untrack the slot
-    auto untrackSlot = [weakObject = comp::weak_ptr<comp::ConnectionTracker>(object)](comp::Connection connection)
+    object = comp::make_unique<Object>();
+    // Unwatch the object
+    auto untrackSlot = [&object](comp::ConnectionPtr connection)
     {
-        auto locked = weakObject.lock();
-        if (!locked)
+        if (!object)
         {
             return;
         }
-        std::puts("Untrack this tracked slot.");
-        locked->untrack(connection.get());
+        std::puts("Unwatch the object.");
+        connection->unwatch(*object);
     };
 
     // Connect slot and bind tracker.
-    signal.connect(untrackSlot).bindTrackers(object);
+    signal.connect(untrackSlot)->watch(*object);
 
     // Emit the signal.
     signal();
