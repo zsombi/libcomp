@@ -135,7 +135,7 @@ The extended slot signature is formed using the Connection object followed by th
 signature.
 
 ```cpp
-void function(comp::SignalConcept::ConnectionPtr connection)
+void function(comp::ConnectionPtr connection)
 {
     // Disconnect the slot when activated.
     connection->disconnect();
@@ -157,8 +157,8 @@ Disconnecting connections is illustrated in [this](./examples/disconnect/example
 There are cases when a slot depends on the lifetime of an object. A connection to a slot can track
 the lifetime of such objects. The object must derive from comp::DeleteObserver::Notifier. You can 
 track the deletion of such object by couplig the object to the connection calling the 
-comp::SignalConcept::Connection::watch() method. To decouple an object, call the 
-comp::SignalConcept::Connection::unwatch() method.
+comp::SignalConcept::ConnectionConcept::watch() method. To decouple an object, call the 
+comp::SignalConcept::ConnectionConcept::unwatch() method.
 
 Example of using a shared pointer as tracker.
 ```cpp

@@ -32,26 +32,26 @@ void DeleteObserver::unwatch(Notifier& object)
     erase_if(object.m_observers, predicate);
 }
 
-SignalConcept::Connection::Connection(SignalConcept& signal)
+SignalConcept::ConnectionConcept::ConnectionConcept(SignalConcept& signal)
     : m_signal(&signal)
 {
 }
 
-void SignalConcept::Connection::disconnectOverride()
+void SignalConcept::ConnectionConcept::disconnectOverride()
 {
 }
 
-void SignalConcept::Connection::notifyDeleted(Notifier&)
+void SignalConcept::ConnectionConcept::notifyDeleted(Notifier&)
 {
     disconnect();
 }
 
-bool SignalConcept::Connection::isValid() const
+bool SignalConcept::ConnectionConcept::isValid() const
 {
     return m_signal != nullptr;
 }
 
-void SignalConcept::Connection::disconnect()
+void SignalConcept::ConnectionConcept::disconnect()
 {
     if (!isValid())
     {
@@ -90,7 +90,7 @@ void SignalConcept::addConnection(ConnectionPtr connection)
     m_connections.emplace_back(connection);
 }
 
-void SignalConcept::disconnect(Connection& connection)
+void SignalConcept::disconnect(ConnectionConcept& connection)
 {
     removeConnection(connection);
 }
@@ -105,7 +105,7 @@ void SignalConcept::disconnect()
     }
 }
 
-void SignalConcept::removeConnection(Connection& connection)
+void SignalConcept::removeConnection(ConnectionConcept& connection)
 {
     comp::lock_guard lock(*this);
     auto predicate = [&connection](auto conn)

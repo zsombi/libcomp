@@ -21,7 +21,7 @@ public:
     ~SignalConcept();
 
     /// The Connection to a signal.
-    class COMP_API Connection : public comp::Lockable<comp::mutex>, public comp::DeleteObserver
+    class COMP_API ConnectionConcept : public comp::Lockable<comp::mutex>, public comp::DeleteObserver
     {
     public:
         /// Returns whether the connection object is valid. A connection object is valid when it
@@ -33,7 +33,7 @@ public:
 
     protected:
         /// Constructor.
-        explicit Connection(SignalConcept& signal);
+        explicit ConnectionConcept(SignalConcept& signal);
 
         /// To perform connection specific cleanup when a connection disconnects, implement
         /// this method.
@@ -57,10 +57,10 @@ public:
 
     /// Adds a connection to the signal.
     /// \param connection The connection to add.
-    void addConnection(comp::shared_ptr<Connection> connection);
+    void addConnection(comp::shared_ptr<ConnectionConcept> connection);
     /// Disconnects a connection.
     /// \param connection The connection to disconnect.
-    void disconnect(Connection& connection);
+    void disconnect(ConnectionConcept& connection);
 
     /// Disconnects all the connections of a signal.
     void disconnect();
@@ -68,9 +68,9 @@ protected:
 
     /// Removes a connection from the container.
     /// \param connection The connection to remove.
-    void removeConnection(Connection& connection);
+    void removeConnection(ConnectionConcept& connection);
 
-    using ConnectionContainer = comp::vector<comp::shared_ptr<Connection>>;
+    using ConnectionContainer = comp::vector<comp::shared_ptr<ConnectionConcept>>;
     /// The container with the signal connections.
     ConnectionContainer m_connections;
     /// Signal re-activation guard.
@@ -82,7 +82,7 @@ private:
 };
 
 /// The pointer to a signal connection.
-using ConnectionPtr = comp::shared_ptr<SignalConcept::Connection>;
+using ConnectionPtr = comp::shared_ptr<SignalConcept::ConnectionConcept>;
 
 /// The default result collector of a signal.
 template <typename TRet>
@@ -109,7 +109,7 @@ class COMP_TEMPLATE_API SignalConceptImpl : public SignalConcept
 {
 public:
     /// The slot, the connection of a signal to a function, a lambda, a method or an other signal.
-    class COMP_TEMPLATE_API SlotType : public SignalConcept::Connection
+    class COMP_TEMPLATE_API SlotType : public SignalConcept::ConnectionConcept
     {
     public:
         /// Activates the slot, and collects the results using the \a collector.

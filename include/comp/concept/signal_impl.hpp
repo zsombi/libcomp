@@ -13,7 +13,7 @@ namespace comp
 
 template <typename TRet, typename... TArgs>
 SignalConceptImpl<TRet, TArgs...>::SlotType::SlotType(SignalConcept& signal)
-    : Connection(signal)
+    : ConnectionConcept(signal)
 {
 }
 
@@ -117,7 +117,7 @@ protected:
         }
         else if constexpr (is_same_v<ConnectionPtr, typename function_traits<Function>::template argument<0u>::type>)
         {
-            auto connection = comp::dynamic_pointer_cast<SignalConcept::Connection>(this->shared_from_this());
+            auto connection = comp::dynamic_pointer_cast<SignalConcept::ConnectionConcept>(this->shared_from_this());
             return comp::invoke(m_function, connection, comp::forward<TArgs>(args)...);
         }
         else
@@ -156,7 +156,7 @@ protected:
         }
         else if constexpr (is_same_v<ConnectionPtr, typename function_traits<Method>::template argument<0u>::type>)
         {
-            auto connection = comp::dynamic_pointer_cast<SignalConcept::Connection>(this->shared_from_this());
+            auto connection = comp::dynamic_pointer_cast<SignalConcept::ConnectionConcept>(this->shared_from_this());
             return comp::invoke(m_method, slot, connection, comp::forward<TArgs>(args)...);
         }
         else
