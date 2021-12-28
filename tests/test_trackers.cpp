@@ -1,20 +1,14 @@
 #include "test_base.hpp"
-#include <comp/signal.hpp>
-#include <comp/utility/tracker.hpp>
+#include <comp/wraps>
+#include <comp/utilities>
 
 namespace
 {
 
-class TestTracker : public comp::ConnectionTracker
+class TestNotifier : public comp::DeleteObserver::Notifier
 {
 public:
-    explicit TestTracker() = default;
-};
-
-class IntrusiveTracker : public comp::ConnectionTracker, public comp::enable_intrusive_ptr
-{
-public:
-    explicit IntrusiveTracker() = default;
+    explicit TestNotifier() = default;
 };
 
 class Object : public comp::enable_shared_from_this<Object>
@@ -23,44 +17,8 @@ public:
     explicit Object() = default;
 };
 
-}
+using TrackerTest = SignalTest;
 
-class TrackerTest : public SignalTest
-{
-public:
-    explicit TrackerTest() = default;
-};
-
-struct Trackable : public comp::enable_intrusive_ptr
-{
-    void disconnect() {}
-};
-
-TEST(Tracker, is_tracker_connection)
-{
-    comp::Tracker<comp::Connection> tracker;
-    EXPECT_TRUE(comp::is_tracker_v<decltype(tracker)>);
-    EXPECT_TRUE(comp::is_tracker_v<comp::remove_pointer_t<decltype(tracker)>>);
-}
-TEST(Tracker, is_tracker_tracklable)
-{
-    comp::Tracker<Trackable> tracker;
-    EXPECT_TRUE(comp::is_tracker_v<decltype(tracker)>);
-}
-TEST(Tracker, is_tracker_tracklable_pointer)
-{
-    comp::Tracker<Trackable*> tracker;
-    EXPECT_TRUE(comp::is_tracker_v<decltype(tracker)>);
-}
-TEST(Tracker, is_tracker_shared_ptr_tracklable)
-{
-    comp::Tracker<comp::shared_ptr<Trackable>> tracker;
-    EXPECT_TRUE(comp::is_tracker_v<decltype(tracker)>);
-}
-TEST(Tracker, is_tracker_intrusive_ptr_tracklable)
-{
-    comp::Tracker<comp::intrusive_ptr<Trackable>> tracker;
-    EXPECT_TRUE(comp::is_tracker_v<decltype(tracker)>);
 }
 
 // The application developer should be able to bind trackables to the connection. Any tracker reset disconnects
@@ -69,46 +27,13 @@ TEST_F(TrackerTest, connectToTrackable)
 {
     using SignalType = comp::Signal<void()>;
     SignalType signal;
-    auto destination = comp::make_unique<TestTracker>();
+    auto destination = comp::make_unique<TestNotifier>();
 
     auto connection = signal.connect([](){});
-    connection.bind(destination.get());
-    EXPECT_TRUE(connection);
+    connection->watch(*destination);
+    EXPECT_TRUE(connection->isValid());
     destination.reset();
-    EXPECT_FALSE(connection);
-}
-
-// The application developer should be able to bind shared pointers with the connection. Any tracker reset disconnects
-// the connection.
-TEST_F(TrackerTest, connectToWeakPointer)
-{
-    using SignalType = comp::Signal<void()>;
-    SignalType signal;
-    auto destination = comp::make_shared<Object>();
-
-    auto connection = signal.connect([](){});
-    connection.bind(destination);
-    EXPECT_TRUE(connection);
-    destination.reset();
-    EXPECT_FALSE(connection);
-    // emit the signal
-    EXPECT_EQ(0, signal().size());
-}
-
-// The application developer should be able to bind trackables and shared pointers with the connection. Any tracker reset
-// disconnects the connection.
-TEST_F(TrackerTest, connectToTrackableAndWeakPointer)
-{
-    using SignalType = comp::Signal<void()>;
-    SignalType signal;
-    auto t1 = comp::make_shared<Object>();
-    auto t2 = comp::make_unique<TestTracker>();
-
-    auto connection = signal.connect([](){});
-    connection.bind(t1, t2.get());
-    EXPECT_TRUE(connection);
-    t2.reset();
-    EXPECT_FALSE(connection);
+    EXPECT_FALSE(connection->isValid());
 }
 
 // The application developer should be able to track multiple slots with the same tracker.
@@ -119,16 +44,18 @@ TEST_F(TrackerTest, bindTrackerToMultipleSignals)
 
     VoidSignalType voidSignal;
     IntSignalType intSignal;
-    auto tracker = comp::make_unique<TestTracker>();
+    auto tracker = comp::make_unique<TestNotifier>();
 
-    auto connection1 = voidSignal.connect([](){}).bind(tracker.get());
-    auto connection2 = intSignal.connect([](){ return 0; }).bind(tracker.get());
+    auto connection1 = voidSignal.connect([](){});
+    auto connection2 = intSignal.connect([](){ return 0; });
+    connection1->watch(*tracker);
+    connection2->watch(*tracker);
 
-    EXPECT_TRUE(connection1);
-    EXPECT_TRUE(connection2);
+    EXPECT_TRUE(connection1->isValid());
+    EXPECT_TRUE(connection2->isValid());
     tracker.reset();
-    EXPECT_FALSE(connection1);
-    EXPECT_FALSE(connection2);
+    EXPECT_FALSE(connection1->isValid());
+    EXPECT_FALSE(connection2->isValid());
 }
 
 // The application developer should be able to destroy a tracker in the slot to shich the tracker is bount to.
@@ -136,7 +63,7 @@ TEST_F(TrackerTest, deleteTrackableInSlotDisconnects)
 {
     using SignalType = comp::Signal<void()>;
     SignalType signal;
-    auto tracker = comp::make_unique<TestTracker>();
+    auto tracker = comp::make_unique<TestNotifier>();
 
     auto deleter = [&tracker]()
     {
@@ -145,62 +72,14 @@ TEST_F(TrackerTest, deleteTrackableInSlotDisconnects)
 
     // connect 3 slots
     signal.connect([](){});
-    auto connection = signal.connect(deleter).bind(tracker.get());
+    auto connection = signal.connect(deleter);
+    connection->watch(*tracker);
     signal.connect([](){});
-    EXPECT_EQ(3, signal().size());
+    EXPECT_EQ(3, signal());
     EXPECT_FALSE(tracker);
     // The deleter slot is disconnected.
-    EXPECT_FALSE(connection);
-    EXPECT_EQ(2, signal().size());
-}
-
-// The application developer should be able to destroy a tracker in the slot to shich the tracker is bount to.
-TEST_F(TrackerTest, deleteSharedPtrTrackableInSlotDisconnects)
-{
-    using SignalType = comp::Signal<void()>;
-    SignalType signal;
-    auto tracker = comp::make_shared<Object>();
-
-    auto deleter = [&tracker]()
-    {
-        tracker.reset();
-    };
-
-    // connect 3 slots
-    signal.connect([](){});
-    auto connection = signal.connect(deleter).bind(tracker);
-    signal.connect([](){});
-    EXPECT_EQ(3, signal().size());
-    EXPECT_FALSE(tracker);
-    // The deleter slot is disconnected.
-    EXPECT_FALSE(connection);
-    EXPECT_EQ(2, signal().size());
-}
-
-// The application developer should be able to destroy a tracker in the slot to shich the tracker is bount to.
-TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_sharedPtr)
-{
-    using SignalType = comp::Signal<void()>;
-    SignalType signal;
-    auto tracker1 = comp::make_shared<Object>();
-    auto tracker2 = comp::make_unique<TestTracker>();
-
-    auto deleter = [&tracker1]()
-    {
-        tracker1.reset();
-    };
-
-    // connect 3 slots
-    signal.connect([](){});
-    auto connection = signal.connect(deleter).bind(tracker1, tracker2.get());
-    signal.connect([](){});
-    EXPECT_EQ(3, signal().size());
-    EXPECT_FALSE(tracker1);
-    // the second tracker is not destroyed.
-    EXPECT_TRUE(tracker2);
-    // The deleter slot is disconnected.
-    EXPECT_FALSE(connection);
-    EXPECT_EQ(2, signal().size());
+    EXPECT_FALSE(connection->isValid());
+    EXPECT_EQ(2, signal());
 }
 
 // The application developer should be able to destroy a tracker in the slot to shich the tracker is bount to.
@@ -208,8 +87,8 @@ TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_tracker)
 {
     using SignalType = comp::Signal<void()>;
     SignalType signal;
-    auto tracker1 = comp::make_shared<Object>();
-    auto tracker2 = comp::make_unique<TestTracker>();
+    auto tracker1 = comp::make_unique<TestNotifier>();
+    auto tracker2 = comp::make_unique<TestNotifier>();
 
     auto deleter = [&tracker2]()
     {
@@ -218,68 +97,15 @@ TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_tracker)
 
     // connect 3 slots
     signal.connect([](){});
-    auto connection = signal.connect(deleter).bind(tracker1, tracker2.get());
+    auto connection = signal.connect(deleter);
+    connection->watch(*tracker1);
+    connection->watch(*tracker2);
     signal.connect([](){});
-    EXPECT_EQ(3, signal().size());
+    EXPECT_EQ(3, signal());
     EXPECT_FALSE(tracker2);
     // the other tracker is not destroyed.
     EXPECT_TRUE(tracker1);
     // The deleter slot is disconnected.
-    EXPECT_FALSE(connection);
-    EXPECT_EQ(2, signal().size());
-}
-
-// The application developer should be able to disconnect tracked slots in the slot to shich the tracker is bount to.
-TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_sharedTrackerPtr)
-{
-    using SignalType = comp::Signal<void()>;
-    SignalType signal;
-    auto tracker1 = comp::make_shared<Object>();
-    auto tracker2 = comp::make_shared<IntrusiveTracker>();
-
-    auto deleter = [&tracker2]()
-    {
-        tracker2->clearTrackables();
-        tracker2.reset();
-    };
-
-    // connect 3 slots
-    signal.connect([](){});
-    auto connection = signal.connect(deleter).bind(tracker1, tracker2);
-    signal.connect([](){}).bind(tracker2);
-    // The 3rd connection is disconnected by tracker2.
-    EXPECT_EQ(2, signal().size());
-    EXPECT_FALSE(tracker2);
-    // the other tracker is not destroyed.
-    EXPECT_TRUE(tracker1);
-    // The deleter slot is disconnected.
-    EXPECT_FALSE(connection);
-    EXPECT_EQ(1, signal().size());
-}
-
-// The application developer should be able to disconnect tracked slots in the slot to shich the tracker is bount to.
-TEST_F(TrackerTest, deleteOneFromTrackablesInSlotDisconnects_intrusiveTrackerPtr)
-{
-    using SignalType = comp::Signal<void()>;
-    SignalType signal;
-    auto tracker1 = comp::make_shared<Object>();
-    auto tracker2 = comp::make_intrusive<IntrusiveTracker>();
-
-    auto deleter = [&tracker2]()
-    {
-        tracker2->clearTrackables();
-        tracker2.reset();
-    };
-
-    // connect 3 slots
-    signal.connect([](){});
-    auto connection = signal.connect(deleter).bind(tracker1, tracker2);
-    signal.connect([](){}).bind(tracker2);
-    EXPECT_EQ(2, signal().size());
-    EXPECT_FALSE(tracker2);
-    // the other tracker is not destroyed.
-    EXPECT_TRUE(tracker1);
-    // The deleter slot is disconnected.
-    EXPECT_FALSE(connection);
-    EXPECT_EQ(1, signal().size());
+    EXPECT_FALSE(connection->isValid());
+    EXPECT_EQ(2, signal());
 }

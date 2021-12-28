@@ -2,71 +2,47 @@
 #define COMP_TRACKER_HPP
 
 #include <comp/config.hpp>
-#include <comp/wrap/intrusive_ptr.hpp>
 #include <comp/wrap/memory.hpp>
 #include <comp/wrap/vector.hpp>
 
 namespace comp
 {
 
-/// The Tracker template class implements the tracking the lifetime of objects, called trackables.
-/// The assumption is that each trackable object has a disconnect() method that is called when
-/// disconnectTrackables() is called.
-/// To track an object, call track(). To remove an object from the tracked objects, call untrack().
-/// To disconnect tracked objects, call clearTrackables().
-template <typename T>
-class COMP_API Tracker
+/// The %DeleteObserver gets notified when a watched object is deleted. The watched object must
+/// derive from Notifier.
+class COMP_API DeleteObserver : public comp::enable_shared_from_this<DeleteObserver>
 {
 public:
-    /// Constructor.
-    explicit Tracker() = default;
+    /// The %Notifier tells DeleteObserver instances that watch the deletion of the object.
+    class COMP_API Notifier
+    {
+        friend class DeleteObserver;
+    public:
+        /// Destructor.
+        ~Notifier();
+
+    private:
+        using Observers = comp::vector<comp::weak_ptr<DeleteObserver>>;
+        /// The observers that watch the deletion of this object.
+        Observers m_observers;
+    };
 
     /// Destructor.
-    ~Tracker()
-    {
-        clearTrackables();
-    }
+    virtual ~DeleteObserver() = default;
 
-    /// Adds a trackable object to track.
-    void track(T trackable)
-    {
-       m_trackables.push_back(trackable);
-    }
-    /// Removes a tracked object. Does not disconnect the tracked object.
-    void untrack(T trackable)
-    {
-       erase_first(m_trackables, trackable);
-    }
-    /// Clears the trackables, disconnecting each tracked objects.
-    void clearTrackables()
-    {
-        while (!m_trackables.empty())
-        {
-            auto trackable = m_trackables.back();
-            m_trackables.pop_back();
-            if constexpr (is_pointer_v<T> || is_shared_ptr_v<T> || is_intrusive_ptr_v<T>)
-            {
-                trackable->disconnect();
-            }
-            else
-            {
-                trackable.disconnect();
-            }
-        }
-    }
+    /// Watch the deletion of the \a object.
+    /// \param object The object whose deletion to watch.
+    void watch(Notifier& object);
 
-private:
-    vector<T> m_trackables;
+    /// Unwatches the deletion of the \a object.
+    /// \param object The object to unwatch.
+    void unwatch(Notifier& object);
+
+protected:
+    /// Tells the observer that an \a object is deleted.
+    /// \param object The object that is deleted.
+    virtual void notifyDeleted(Notifier& object) = 0;
 };
-
-template <typename T>
-struct is_tracker : false_type{};
-
-template <typename T>
-struct is_tracker<Tracker<T>> : true_type{};
-
-template <typename T>
-constexpr bool is_tracker_v = is_tracker<T>::value;
 
 } // comp
 

@@ -10,4 +10,5 @@ set (SOURCES
 )
 
 add_executable(${PROJECT} ${SOURCES})
+target_link_libraries(track_tracker ${COMP_TEST_LIBS} comp_lib)
 configure_target(${PROJECT})

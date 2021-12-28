@@ -1,4 +1,4 @@
-#include <comp/signal.hpp>
+#include <comp/signal>
 #include <iostream>
 
 void function()

@@ -2,7 +2,7 @@
 #define TEST_BASE_HPP
 
 #include <gtest/gtest.h>
-#include <comp/signal.hpp>
+#include <comp/signal>
 
 class SignalTest : public ::testing::Test
 {
@@ -17,6 +17,12 @@ public:
     static void function()
     {
         ++functionCallCount;
+    }
+
+    static int intFunction()
+    {
+        ++functionCallCount;
+        return 1337;
     }
 
     static void functionWithIntArgument(int ivalue)

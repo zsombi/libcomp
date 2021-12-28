@@ -1,13 +1,13 @@
-#include <comp/signal.hpp>
+#include <comp/signal>
 #include <iostream>
 
 void function()
 {
 }
 
-auto lambda = [](comp::Connection connection)
+auto lambda = [](comp::ConnectionPtr connection)
 {
-    connection.disconnect();
+    connection->disconnect();
 };
 
 int main()
@@ -22,8 +22,8 @@ int main()
     signal.connect(lambda);
 
     // Emit the signal.
-    std::cout << "Emit count: " << signal().size() << std::endl;
-    std::cout << "Emit count now: " << signal().size() << std::endl;
+    std::cout << "Emit count: " << signal() << std::endl;
+    std::cout << "Emit count now: " << signal() << std::endl;
 
     return 0;
 }
